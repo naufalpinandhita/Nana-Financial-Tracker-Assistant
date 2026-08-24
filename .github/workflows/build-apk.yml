@@ -41,12 +41,16 @@ jobs:
       - name: Build Release APK
         run: |
           cd nana_mobile
-          flutter build apk --release --split-per-abi
+          TAG_NAME="${{ github.ref_name }}"
+          CLEAN_VERSION="${TAG_NAME#v}"
+          flutter build apk --release --build-name="$CLEAN_VERSION" --build-number=${{ github.run_number }} --split-per-abi
 
       - name: Build Fat Release APK (Universal)
         run: |
           cd nana_mobile
-          flutter build apk --release
+          TAG_NAME="${{ github.ref_name }}"
+          CLEAN_VERSION="${TAG_NAME#v}"
+          flutter build apk --release --build-name="$CLEAN_VERSION" --build-number=${{ github.run_number }}
 
       - name: Upload Universal APK Artifact
         uses: actions/upload-artifact@v4
