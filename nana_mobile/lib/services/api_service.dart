@@ -16,12 +16,8 @@ class ApiService {
     if (baseUrl != null) {
       this.baseUrl = baseUrl;
     } else {
-      if (!kIsWeb && Platform.isAndroid) {
-        // Use 10.0.3.2 for Genymotion, or 10.0.2.2 for Android AVD
-        this.baseUrl = 'http://10.0.3.2:3000/api';
-      } else {
-        this.baseUrl = 'http://localhost:3000/api';
-      }
+      // Default to Proxmox Home Server Tunnel (Cloudflare) so app connects immediately out-of-the-box
+      this.baseUrl = 'https://focusing-referral-emma-helicopter.trycloudflare.com/api';
     }
   }
 
