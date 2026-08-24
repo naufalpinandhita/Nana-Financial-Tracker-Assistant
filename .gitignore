@@ -1,0 +1,46 @@
+# Node / Backend
+**/node_modules/
+**/dist/
+**/build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & Storage
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+**/wa_session/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Flutter / Mobile / Dart
+**/.dart_tool/
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+**/build/
+**/coverage/
+*.class
+*.pyc
+*.iml
+*.ipr
+*.iws
+
+# Android
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# IDE / Editor / System
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
