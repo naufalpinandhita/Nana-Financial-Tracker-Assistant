@@ -30,7 +30,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _baseUrlController = TextEditingController(text: 'http://192.168.18.27:20128/v1');
+    _baseUrlController = TextEditingController(text: 'http://localhost:20128/v1');
     _apiKeyController = TextEditingController();
   }
 
@@ -556,7 +556,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _showQrCodeModal(context, qrCode),
+                onPressed: () => _showQrCodeModal(context),
                 icon: const Icon(Icons.qr_code_2, color: Color(0xFF003527), size: 18),
                 label: Text(
                   qrCode != null ? 'PINDAI QR CODE PAIRING WA' : 'HUBUNGKAN PERANGKAT WA',
@@ -607,112 +607,149 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showQrCodeModal(BuildContext context, String? qrCode) {
+  void _showQrCodeModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalContext) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF191C1B).withValues(alpha: 0.95),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 20,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Pairing WhatsApp Bot',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Buka WA di HP > Perangkat Tertaut (Linked Devices) > Pindai QR ini:',
-                style: TextStyle(fontSize: 13, color: Color(0xFFD8DBD7)),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFB0F0D6).withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: qrCode != null && qrCode.isNotEmpty
-                    ? QrImageView(
-                        data: qrCode,
-                        version: QrVersions.auto,
-                        size: 220.0,
-                        backgroundColor: Colors.white,
-                      )
-                    : const SizedBox(
-                        width: 220,
-                        height: 220,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: LuminousLedgerColors.primary),
-                            SizedBox(height: 16),
-                            Text(
-                              'Menghubungkan ke Baileys Socket...',
-                              style: TextStyle(fontSize: 12, color: Colors.black54),
-                              textAlign: TextAlign.center,
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Consumer(
+              builder: (context, ref, child) {
+                final systemStatusAsync = ref.watch(systemStatusProvider);
+                final status = systemStatusAsync.asData?.value;
+                final currentQr = status?.waQrCode;
+                final isConnected = status?.waBotStatus == 'CONNECTED';
+
+                return Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF191C1B).withValues(alpha: 0.95),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 20,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        isConnected ? 'WhatsApp Terhubung! 🎉' : 'Pairing WhatsApp Bot',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isConnected
+                            ? 'Bot WhatsApp Nana siap digunakan untuk mencatat transaksi via chat.'
+                            : 'Buka WA di HP > Perangkat Tertaut (Linked Devices) > Pindai QR ini:',
+                        style: const TextStyle(fontSize: 13, color: Color(0xFFD8DBD7)),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFB0F0D6).withValues(alpha: 0.3),
+                              blurRadius: 15,
+                              spreadRadius: 2,
                             ),
                           ],
                         ),
+                        child: isConnected
+                            ? const SizedBox(
+                                width: 220,
+                                height: 220,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.check_circle, color: Color(0xFF003527), size: 64),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Berhasil Terhubung',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black80),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : (currentQr != null && currentQr.isNotEmpty
+                                ? QrImageView(
+                                    data: currentQr,
+                                    version: QrVersions.auto,
+                                    size: 220.0,
+                                    backgroundColor: Colors.white,
+                                  )
+                                : SizedBox(
+                                    width: 220,
+                                    height: 220,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const CircularProgressIndicator(color: LuminousLedgerColors.primary),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'Menunggu QR Code dari Server...',
+                                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextButton.icon(
+                                          onPressed: () => ref.invalidate(systemStatusProvider),
+                                          icon: const Icon(Icons.refresh, size: 16),
+                                          label: const Text('Refresh Stream', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
                       ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(modalContext),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(modalContext),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(isConnected ? 'Selesai' : 'Tutup'),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('TUTUP', style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
+                );
+              },
+            );
+          },
         );
       },
     );
   }
-
-  // Section 3 Widget: Universal AI Gateway & Dynamic Models
-  Widget _buildAIGatewayCard(BuildContext context, SystemStatus? status) {
-    final profileAsync = ref.watch(profileProvider);
     final activeModel = profileAsync.value?.aiModel ?? status?.activeAiModel ?? 'gpt-3.5-turbo';
     final currentProvider = profileAsync.value?.aiProviderType ?? '9router';
     final currentBaseUrl = profileAsync.value?.aiBaseUrl ?? 'http://192.168.18.27:20128/v1';
