@@ -62,9 +62,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
-          name: Nana Financial Tracker Release ${{ github.ref_name }}
+          name: Nana Financial Tracker Beta ${{ github.ref_name }}
           draft: false
-          prerelease: false
+          prerelease: true
           generate_release_notes: true
           files: |
             nana_mobile/build/app/outputs/flutter-apk/app-release.apk
