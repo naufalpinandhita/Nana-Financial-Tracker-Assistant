@@ -749,10 +749,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
     );
-  }
+  Widget _buildAIGatewayCard(BuildContext context, SystemStatus? status) {
+    final profileAsync = ref.watch(profileProvider);
     final activeModel = profileAsync.value?.aiModel ?? status?.activeAiModel ?? 'gpt-3.5-turbo';
     final currentProvider = profileAsync.value?.aiProviderType ?? '9router';
-    final currentBaseUrl = profileAsync.value?.aiBaseUrl ?? 'http://192.168.18.27:20128/v1';
+    final currentBaseUrl = profileAsync.value?.aiBaseUrl ?? 'http://localhost:20128/v1';
     final currentApiKey = profileAsync.value?.aiApiKey ?? '';
 
     // Initialize controller text if unchanged
