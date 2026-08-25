@@ -125,7 +125,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                         child: Center(child: CircularProgressIndicator()),
                       ),
                     ),
-                    error: (_, _) => _buildDonutChartCard(context, null),
+                    error: (err, st) => _buildDonutChartCard(context, null),
                   ),
                   const SizedBox(height: 20),
 

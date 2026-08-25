@@ -372,7 +372,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           radius: 46,
                           backgroundColor: LuminousLedgerColors.primaryContainer,
                           backgroundImage: _getAvatarImageProvider(_selectedAvatarUrl),
-                          onBackgroundImageError: (_, _) {},
+                          onBackgroundImageError: (e, s) {},
                           child: (_getAvatarImageProvider(_selectedAvatarUrl) == null)
                               ? Text(
                                   profile.name.isNotEmpty ? profile.name[0].toUpperCase() : 'N',

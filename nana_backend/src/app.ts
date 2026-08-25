@@ -7,6 +7,7 @@ import { WalletService } from './services/walletService.js';
 import { CategoryService } from './services/categoryService.js';
 import { TransactionService } from './services/transactionService.js';
 import { WaService } from './services/waService.js';
+import { AiParserService } from './services/aiParserService.js';
 
 export function createApp(db: Database.Database, waService?: WaService, aiParserService?: AiParserService) {
   const app = new Hono();

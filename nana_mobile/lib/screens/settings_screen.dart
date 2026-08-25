@@ -140,17 +140,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       loading: () => _buildDarkGlassCard(
                         child: const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Colors.white))),
                       ),
-                      error: (_, _) => _buildWhatsAppBotCard(context, true, '+6281234567890', status),
+                      error: (err1, st1) => _buildWhatsAppBotCard(context, true, '+628****7890', status),
                     ),
                     loading: () => _buildDarkGlassCard(
                       child: const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Colors.white))),
                     ),
-                    error: (_, _) => profileAsync.when(
+                    error: (err2, st2) => profileAsync.when(
                       data: (profile) => _buildWhatsAppBotCard(context, profile.waBotEnabled, profile.waNumber, null),
                       loading: () => _buildDarkGlassCard(
                         child: const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Colors.white))),
                       ),
-                      error: (_, _) => _buildWhatsAppBotCard(context, true, '+6281234567890', null),
+                      error: (err3, st3) => _buildWhatsAppBotCard(context, true, '+628****7890', null),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -161,7 +161,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     loading: () => _buildDarkGlassCard(
                       child: const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Colors.white))),
                     ),
-                    error: (_, _) => _buildAIGatewayCard(context, null),
+                    error: (err4, st4) => _buildAIGatewayCard(context, null),
                   ),
                 ],
               ),
@@ -689,7 +689,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     SizedBox(height: 12),
                                     Text(
                                       'Berhasil Terhubung',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black80),
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
                                     ),
                                   ],
                                 ),
@@ -731,7 +731,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onPressed: () => Navigator.pop(modalContext),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,
-                            side: Border.all(color: Colors.white.withOpacity(0.3)),
+                            side: BorderSide(color: Colors.white.withOpacity(0.3)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -747,11 +747,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             );
           },
         );
-781|      },
-782|    );
-783|  }
-784|
-785|  Widget _buildAIGatewayCard(BuildContext context, SystemStatus? status) {
+      },
+    );
+  }
+
+  Widget _buildAIGatewayCard(BuildContext context, SystemStatus? status) {
     final profileAsync = ref.watch(profileProvider);
     final activeModel = profileAsync.value?.aiModel ?? status?.activeAiModel ?? 'gpt-3.5-turbo';
     final currentProvider = profileAsync.value?.aiProviderType ?? '9router';

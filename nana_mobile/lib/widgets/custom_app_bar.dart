@@ -78,7 +78,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         radius: 18,
                         backgroundColor: LuminousLedgerColors.surfaceContainerHigh,
                       ),
-                      error: (_, _) => const CircleAvatar(
+                      error: (e, s) => const CircleAvatar(
                         radius: 18,
                         backgroundColor: LuminousLedgerColors.primaryContainer,
                         child: Icon(Icons.person, size: 18, color: Colors.white),
@@ -106,7 +106,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             ),
                           ),
                           loading: () => const SizedBox(),
-                          error: (_, _) => const SizedBox(),
+                          error: (e, s) => const SizedBox(),
                         ),
                       ],
                     ),
