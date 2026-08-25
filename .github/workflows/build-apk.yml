@@ -46,7 +46,7 @@ jobs:
       - name: Build Fat Release APK (Universal)
         run: |
           cd nana_mobile
-          flutter build apk --release --no-tree-shake-icons --no-pub
+          flutter build apk --debug
 
       - name: Upload Universal APK Artifact
         uses: actions/upload-artifact@v4
@@ -63,6 +63,6 @@ jobs:
           prerelease: true
           generate_release_notes: true
           files: |
-            nana_mobile/build/app/outputs/flutter-apk/app-release.apk
+            nana_mobile/build/app/outputs/flutter-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
