@@ -747,9 +747,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             );
           },
         );
-      },
-    );
-  Widget _buildAIGatewayCard(BuildContext context, SystemStatus? status) {
+781|      },
+782|    );
+783|  }
+784|
+785|  Widget _buildAIGatewayCard(BuildContext context, SystemStatus? status) {
     final profileAsync = ref.watch(profileProvider);
     final activeModel = profileAsync.value?.aiModel ?? status?.activeAiModel ?? 'gpt-3.5-turbo';
     final currentProvider = profileAsync.value?.aiProviderType ?? '9router';
