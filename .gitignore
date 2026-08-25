@@ -37,6 +37,11 @@ yarn-error.log*
 **/android/app/profile
 **/android/app/release
 
+# Documentation & PRDs
+*.docx
+PRD.md
+*PRD*
+
 # IDE / Editor / System
 .idea/
 .vscode/
