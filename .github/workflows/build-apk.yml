@@ -41,7 +41,7 @@ jobs:
       - name: Build Fat Release APK (Universal)
         run: |
           cd nana_mobile
-          flutter build apk --release --verbose
+          flutter build apk --release > build_log.txt 2>&1 || { cat build_log.txt | tail -n 100; exit 1; }
 
       - name: Upload Universal APK Artifact
         uses: actions/upload-artifact@v4
