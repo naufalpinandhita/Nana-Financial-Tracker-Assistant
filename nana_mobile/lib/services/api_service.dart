@@ -10,14 +10,15 @@ import '../models/user_profile.dart';
 import '../models/system_status.dart';
 
 class ApiService {
+  static const String defaultOfficialUrl = 'https://focusing-referral-emma-helicopter.trycloudflare.com/api';
   late String baseUrl;
 
   ApiService({String? baseUrl}) {
-    if (baseUrl != null) {
+    if (baseUrl != null && baseUrl.isNotEmpty) {
       this.baseUrl = baseUrl;
     } else {
       // Default to Proxmox Home Server Tunnel (Cloudflare) so app connects immediately out-of-the-box
-      this.baseUrl = 'https://focusing-referral-emma-helicopter.trycloudflare.com/api';
+      this.baseUrl = defaultOfficialUrl;
     }
   }
 

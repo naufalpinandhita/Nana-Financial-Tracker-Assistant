@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../providers/app_providers.dart';
 import '../theme/luminous_ledger_theme.dart';
+import '../services/api_service.dart';
 import '../widgets/custom_app_bar.dart';
 import '../models/system_status.dart';
 import 'dashboard_screen.dart';
@@ -131,6 +132,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Text('Gagal memuat status: ${err.toString()}', style: const TextStyle(color: Colors.white)),
                     ),
                   ),
+                  const SizedBox(height: 20),
+
+                  // Section 1: Server Backend Configuration (Cloud / Self-Host)
+                  _buildServerConfigCard(context),
                   const SizedBox(height: 20),
 
                   // Section 2: WhatsApp Bot Card (Dark Glass Card)
@@ -748,6 +753,107 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildServerConfigCard(BuildContext context) {
+    final currentServerUrl = ref.watch(customServerUrlProvider);
+    final isOfficial = currentServerUrl == ApiService.defaultOfficialUrl;
+    final controller = TextEditingController(text: currentServerUrl);
+
+    return _buildDarkGlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cloud_done, color: Color(0xFFB0F0D6), size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                'Backend Server URL',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isOfficial ? Colors.green.withOpacity(0.2) : Colors.blue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isOfficial ? 'Cloud Default' : 'Self-Hosted',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isOfficial ? const Color(0xFFB0F0D6) : Colors.lightBlueAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Default terhubung ke Cloud Hosted Backend. Pengguna self-host dapat mengubah URL server ke IP/domain lokal sendiri di sini.',
+            style: TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 13, color: Colors.white),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.dns, size: 18, color: Color(0xFFD8DBD7)),
+              filled: true,
+              fillColor: const Color(0xFF2E312F),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (!isOfficial) ...[
+                OutlinedButton.icon(
+                  onPressed: () {
+                    ref.read(customServerUrlProvider.notifier).setUrl(ApiService.defaultOfficialUrl);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Server dikembalikan ke Default Cloud Hosted')),
+                    );
+                  },
+                  icon: const Icon(Icons.restore, size: 16),
+                  label: const Text('Reset Cloud Default', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              ElevatedButton.icon(
+                onPressed: () {
+                  final newUrl = controller.text.trim();
+                  ref.read(customServerUrlProvider.notifier).setUrl(newUrl);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Server URL diperbarui: $newUrl')),
+                  );
+                },
+                icon: const Icon(Icons.save, size: 16),
+                label: const Text('Simpan Server', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003527),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
