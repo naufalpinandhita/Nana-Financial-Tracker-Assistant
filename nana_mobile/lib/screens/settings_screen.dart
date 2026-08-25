@@ -94,7 +94,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           color: LuminousLedgerColors.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: LuminousLedgerColors.primary.withValues(alpha: 0.2),
+                            color: LuminousLedgerColors.primary.withOpacity(0.2),
                           ),
                         ),
                         child: const Row(
@@ -193,16 +193,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     right: 16,
                   ),
                   decoration: BoxDecoration(
-                    color: LuminousLedgerColors.background.withValues(alpha: 0.85),
+                    color: LuminousLedgerColors.background.withOpacity(0.85),
                     border: Border(
                       top: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: Colors.white.withOpacity(0.4),
                         width: 1,
                       ),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withOpacity(0.05),
                         offset: const Offset(0, -4),
                         blurRadius: 12,
                       ),
@@ -320,9 +320,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,9 +370,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,9 +481,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.2),
+                  color: badgeColor.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                  border: Border.all(color: badgeColor.withOpacity(0.4)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -509,9 +509,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -598,7 +598,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
               ),
             ),
           ),
@@ -625,12 +625,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 return Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF191C1B).withValues(alpha: 0.95),
+                    color: const Color(0xFF191C1B).withOpacity(0.95),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
+                        color: Colors.black.withOpacity(0.5),
                         blurRadius: 20,
                         offset: const Offset(0, -5),
                       ),
@@ -643,7 +643,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: Colors.white.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -672,7 +672,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFB0F0D6).withValues(alpha: 0.3),
+                              color: const Color(0xFFB0F0D6).withOpacity(0.3),
                               blurRadius: 15,
                               spreadRadius: 2,
                             ),
@@ -731,7 +731,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onPressed: () => Navigator.pop(modalContext),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,
-                            side: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            side: Border.all(color: Colors.white.withOpacity(0.3)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -787,7 +787,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: status?.aiGatewayOnline == true ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
+                  color: status?.aiGatewayOnline == true ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -846,7 +846,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -869,13 +869,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.key, size: 18, color: Color(0xFFD8DBD7)),
               hintText: 'sk-... atau kosongkan jika tidak butuh auth',
-              hintStyle: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.3)),
+              hintStyle: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.3)),
               filled: true,
               fillColor: const Color(0xFF2E312F),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -930,7 +930,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF2E312F),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFB0F0D6).withValues(alpha: 0.4)),
+              border: Border.all(color: const Color(0xFFB0F0D6).withOpacity(0.4)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -984,7 +984,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                side: BorderSide(color: Colors.white.withOpacity(0.3)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1099,17 +1099,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF2E312F).withValues(alpha: 0.92),
+        color: const Color(0xFF2E312F).withOpacity(0.92),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: Colors.black.withOpacity(0.3),
             offset: const Offset(4, 4),
             blurRadius: 12,
           ),
           BoxShadow(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Colors.white.withOpacity(0.05),
             offset: const Offset(-2, -2),
             blurRadius: 8,
           ),
@@ -1178,9 +1178,9 @@ class _StatMetricBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
