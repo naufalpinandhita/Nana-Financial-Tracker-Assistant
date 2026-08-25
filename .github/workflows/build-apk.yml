@@ -38,14 +38,12 @@ jobs:
           cd nana_mobile
           flutter pub get
 
-      - name: Build Release APK
-        shell: bash
+      - name: Clean Flutter Build
         run: |
           cd nana_mobile
-          flutter build apk --release --verbose
+          flutter clean
 
       - name: Build Fat Release APK (Universal)
-        shell: bash
         run: |
           cd nana_mobile
           flutter build apk --release
