@@ -52,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nana-app-release
-          path: nana_mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: nana_mobile/build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Create Release & Upload APK (On Tag or Dispatch)
         uses: softprops/action-gh-release@v2
