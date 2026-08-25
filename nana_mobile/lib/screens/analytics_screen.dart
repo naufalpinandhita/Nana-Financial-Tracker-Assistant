@@ -149,89 +149,87 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           ),
 
           // Custom Bottom Navigation Bar
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                        child: Container(
-                          padding: EdgeInsets.only(
-                            top: 10,
-                            bottom: MediaQuery.of(context).padding.bottom + 8,
-                            left: 16,
-                            right: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color: LuminousLedgerColors.background.withValues(alpha: 0.85),
-                            border: Border(
-                              top: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.4),
-                                width: 1,
-                              ),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                offset: const Offset(0, -4),
-                                blurRadius: 12,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildNavItem(
-                                index: 0,
-                                icon: Icons.home_outlined,
-                                label: 'Home',
-                                isActive: _selectedBottomNavIndex == 0,
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                                  );
-                                },
-                              ),
-                              _buildNavItem(
-                                index: 1,
-                                icon: Icons.account_balance_wallet_outlined,
-                                label: 'Wallet',
-                                isActive: _selectedBottomNavIndex == 1,
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const WalletManagementScreen()),
-                                  );
-                                },
-                              ),
-                              _buildNavItem(
-                                index: 2,
-                                icon: Icons.insights,
-                                label: 'Analytics',
-                                isActive: _selectedBottomNavIndex == 2,
-                                onTap: () {},
-                              ),
-                              _buildNavItem(
-                                index: 3,
-                                icon: Icons.settings_outlined,
-                                label: 'Settings',
-                                isActive: _selectedBottomNavIndex == 3,
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              top: false,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: LuminousLedgerColors.background.withValues(alpha: 0.85),
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          width: 1,
                         ),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          offset: const Offset(0, -4),
+                          blurRadius: 12,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildNavItem(
+                          index: 0,
+                          icon: Icons.home_outlined,
+                          label: 'Home',
+                          isActive: _selectedBottomNavIndex == 0,
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItem(
+                          index: 1,
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'Wallet',
+                          isActive: _selectedBottomNavIndex == 1,
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const WalletManagementScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItem(
+                          index: 2,
+                          icon: Icons.insights,
+                          label: 'Analytics',
+                          isActive: _selectedBottomNavIndex == 2,
+                          onTap: () {},
+                        ),
+                        _buildNavItem(
+                          index: 3,
+                          icon: Icons.settings_outlined,
+                          label: 'Settings',
+                          isActive: _selectedBottomNavIndex == 3,
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
+                ),
+              ),
+            ),
+          ),
                 ],
               ),
             );

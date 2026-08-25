@@ -233,17 +233,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
           // Custom Bottom Navigation Bar
           Positioned(
-            bottom: 0,
             left: 0,
             right: 0,
+            bottom: 0,
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 child: Container(
-                  padding: EdgeInsets.only(
+                  padding: const EdgeInsets.only(
                     top: 10,
-                    bottom: MediaQuery.of(context).padding.bottom + 8,
+                    bottom: 12,
                     left: 16,
                     right: 16,
                   ),

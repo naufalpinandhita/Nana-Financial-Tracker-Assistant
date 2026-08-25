@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/app_providers.dart';
+import '../providers/auth_provider.dart';
 import '../theme/luminous_ledger_theme.dart';
 import '../widgets/glass_card.dart';
 
@@ -535,6 +536,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final nav = Navigator.of(context);
+                      await ref.read(authProvider.notifier).logout();
+                      if (nav.canPop()) {
+                        nav.popUntil((route) => route.isFirst);
+                      }
+                    },
+                    icon: const Icon(Icons.logout, color: Color(0xFFBA1A1A)),
+                    label: const Text(
+                      'KELUAR / LOGOUT',
+                      style: TextStyle(
+                        color: Color(0xFFBA1A1A),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFBA1A1A)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
               ],

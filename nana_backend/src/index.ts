@@ -5,7 +5,7 @@ import { WalletService } from './services/walletService.js';
 import { CategoryService } from './services/categoryService.js';
 import { TransactionService } from './services/transactionService.js';
 import { AiParserService } from './services/aiParserService.js';
-import { WaService } from './services/waService.js';
+import { WaServiceManager } from './services/waServiceManager.js';
 
 const dbPath = process.env.DATABASE_PATH || 'nana.db';
 const port = parseInt(process.env.PORT || '3000', 10);
@@ -17,22 +17,20 @@ const categoryService = new CategoryService(db);
 const transactionService = new TransactionService(db);
 const aiParserService = new AiParserService(db);
 
-const waService = new WaService(
+const waManager = new WaServiceManager(
   db,
   walletService,
   categoryService,
   transactionService,
-  aiParserService
+  aiParserService,
 );
 
-// Start WA socket in background
-if (process.env.DISABLE_WA !== 'true') {
-  waService.startSocket().catch((err) => {
-    console.error('Failed to start WhatsApp Service:', err);
-  });
-}
+// Restore previously connected WA sessions on boot
+waManager.restoreConnectedSessions().catch((err) => {
+  console.error('Failed to restore WA sessions:', err);
+});
 
-const app = createApp(db, waService, aiParserService);
+const app = createApp(db, waManager, aiParserService);
 
 console.log(`🚀 Nana Backend API listening on http://localhost:${port}`);
 serve({

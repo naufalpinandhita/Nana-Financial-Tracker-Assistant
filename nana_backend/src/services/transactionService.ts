@@ -3,6 +3,7 @@ import { cryptoNative } from '../utils/crypto.js';
 
 export interface Transaction {
   id: string;
+  user_id: string;
   wallet_id: string;
   target_wallet_id?: string | null;
   category_id?: string | null;
@@ -19,7 +20,7 @@ export interface Transaction {
 export class TransactionService {
   constructor(private db: Database.Database) {}
 
-  getAll(filter?: { wallet_id?: string; startDate?: string; endDate?: string }): Transaction[] {
+  getAll(userId: string, filter?: { wallet_id?: string; startDate?: string; endDate?: string }): Transaction[] {
     let sql = `
       SELECT t.*, 
              w.name as wallet_name, 
@@ -29,9 +30,9 @@ export class TransactionService {
       LEFT JOIN wallets w ON t.wallet_id = w.id
       LEFT JOIN wallets tw ON t.target_wallet_id = tw.id
       LEFT JOIN categories c ON t.category_id = c.id
-      WHERE 1=1
+      WHERE t.user_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [userId];
 
     if (filter?.wallet_id) {
       sql += ` AND (t.wallet_id = ? OR t.target_wallet_id = ?)`;
@@ -51,7 +52,7 @@ export class TransactionService {
     return this.db.prepare(sql).all(...params) as Transaction[];
   }
 
-  getById(id: string): Transaction | null {
+  getById(id: string, userId: string): Transaction | null {
     const sql = `
       SELECT t.*, 
              w.name as wallet_name, 
@@ -61,13 +62,13 @@ export class TransactionService {
       LEFT JOIN wallets w ON t.wallet_id = w.id
       LEFT JOIN wallets tw ON t.target_wallet_id = tw.id
       LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.id = ?
+      WHERE t.id = ? AND t.user_id = ?
     `;
-    const res = this.db.prepare(sql).get(id);
+    const res = this.db.prepare(sql).get(id, userId);
     return (res as Transaction) || null;
   }
 
-  create(data: {
+  create(userId: string, data: {
     wallet_id: string;
     target_wallet_id?: string | null;
     category_id?: string | null;
@@ -80,7 +81,7 @@ export class TransactionService {
       throw new Error('Jumlah transaksi harus lebih besar dari 0');
     }
 
-    const wallet = this.db.prepare('SELECT * FROM wallets WHERE id = ?').get(data.wallet_id);
+    const wallet = this.db.prepare('SELECT * FROM wallets WHERE id = ? AND user_id = ?').get(data.wallet_id, userId);
     if (!wallet) {
       throw new Error('Dompet tidak ditemukan');
     }
@@ -92,7 +93,7 @@ export class TransactionService {
       if (data.wallet_id === data.target_wallet_id) {
         throw new Error('Dompet asal dan tujuan tidak boleh sama');
       }
-      const targetWallet = this.db.prepare('SELECT * FROM wallets WHERE id = ?').get(data.target_wallet_id);
+      const targetWallet = this.db.prepare('SELECT * FROM wallets WHERE id = ? AND user_id = ?').get(data.target_wallet_id, userId);
       if (!targetWallet) {
         throw new Error('Dompet tujuan tidak ditemukan');
       }
@@ -103,10 +104,11 @@ export class TransactionService {
     // Use SQLite transaction to ensure atomicity
     const executeTransaction = this.db.transaction(() => {
       this.db.prepare(`
-        INSERT INTO transactions (id, wallet_id, target_wallet_id, category_id, type, amount, date, note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transactions (id, user_id, wallet_id, target_wallet_id, category_id, type, amount, date, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
+        userId,
         data.wallet_id,
         data.target_wallet_id || null,
         data.category_id || null,
@@ -118,70 +120,68 @@ export class TransactionService {
 
       // Balance adjustment logic
       if (data.type === 'income') {
-        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ?').run(data.amount, data.wallet_id);
+        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ? AND user_id = ?').run(data.amount, data.wallet_id, userId);
       } else if (data.type === 'expense') {
-        this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ?').run(data.amount, data.wallet_id);
+        this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ? AND user_id = ?').run(data.amount, data.wallet_id, userId);
       } else if (data.type === 'transfer') {
-        this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ?').run(data.amount, data.wallet_id);
-        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ?').run(data.amount, data.target_wallet_id);
+        this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ? AND user_id = ?').run(data.amount, data.wallet_id, userId);
+        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ? AND user_id = ?').run(data.amount, data.target_wallet_id, userId);
       }
     });
 
     executeTransaction();
 
-    return this.getById(id)!;
+    return this.getById(id, userId)!;
   }
 
-  delete(id: string): boolean {
-    const tx = this.getById(id);
+  delete(id: string, userId: string): boolean {
+    const tx = this.getById(id, userId);
     if (!tx) return false;
 
     const executeDelete = this.db.transaction(() => {
       // Reverse balance adjustment
       if (tx.type === 'income') {
-        this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ?').run(tx.amount, tx.wallet_id);
+        this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ? AND user_id = ?').run(tx.amount, tx.wallet_id, userId);
       } else if (tx.type === 'expense') {
-        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ?').run(tx.amount, tx.wallet_id);
+        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ? AND user_id = ?').run(tx.amount, tx.wallet_id, userId);
       } else if (tx.type === 'transfer') {
-        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ?').run(tx.amount, tx.wallet_id);
+        this.db.prepare('UPDATE wallets SET balance = balance + ? WHERE id = ? AND user_id = ?').run(tx.amount, tx.wallet_id, userId);
         if (tx.target_wallet_id) {
-          this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ?').run(tx.amount, tx.target_wallet_id);
+          this.db.prepare('UPDATE wallets SET balance = balance - ? WHERE id = ? AND user_id = ?').run(tx.amount, tx.target_wallet_id, userId);
         }
       }
 
-      this.db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
+      this.db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').run(id, userId);
     });
 
     executeDelete();
     return true;
   }
 
-  getDashboardSummary(monthStr?: string) {
-    // Current month filter (e.g., '2026-08')
+  getDashboardSummary(userId: string, monthStr?: string) {
     const currentMonth = monthStr || new Date().toISOString().substring(0, 7);
 
-    const wallets = this.db.prepare('SELECT * FROM wallets').all() as any[];
+    const wallets = this.db.prepare('SELECT * FROM wallets WHERE user_id = ?').all(userId) as any[];
     const totalBalance = wallets.reduce((acc, w) => acc + w.balance, 0);
 
     const monthIncome = (this.db.prepare(`
       SELECT SUM(amount) as total FROM transactions
-      WHERE type = 'income' AND date LIKE ?
-    `).get(`${currentMonth}%`) as any).total || 0;
+      WHERE user_id = ? AND type = 'income' AND date LIKE ?
+    `).get(userId, `${currentMonth}%`) as any).total || 0;
 
     const monthExpense = (this.db.prepare(`
       SELECT SUM(amount) as total FROM transactions
-      WHERE type = 'expense' AND date LIKE ?
-    `).get(`${currentMonth}%`) as any).total || 0;
+      WHERE user_id = ? AND type = 'expense' AND date LIKE ?
+    `).get(userId, `${currentMonth}%`) as any).total || 0;
 
-    // Expenses grouped by category for donut/pie chart
     const expenseByCategory = this.db.prepare(`
       SELECT c.name as category_name, c.color as category_color, SUM(t.amount) as total_amount
       FROM transactions t
       JOIN categories c ON t.category_id = c.id
-      WHERE t.type = 'expense' AND t.date LIKE ?
+      WHERE t.user_id = ? AND t.type = 'expense' AND t.date LIKE ?
       GROUP BY c.id
       ORDER BY total_amount DESC
-    `).all(`${currentMonth}%`);
+    `).all(userId, `${currentMonth}%`);
 
     return {
       totalBalance,

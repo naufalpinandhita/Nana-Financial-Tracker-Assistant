@@ -3,13 +3,19 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import type Database from 'better-sqlite3';
 import os from 'os';
+import { OAuth2Client } from 'google-auth-library';
 import { WalletService } from './services/walletService.js';
 import { CategoryService } from './services/categoryService.js';
 import { TransactionService } from './services/transactionService.js';
-import { WaService } from './services/waService.js';
+import { WaServiceManager } from './services/waServiceManager.js';
 import { AiParserService } from './services/aiParserService.js';
+import { seedDefaultCategories } from './db/connection.js';
+import { generateToken, verifyToken, hashPassword, comparePassword } from './utils/auth.js';
+import { cryptoNative } from './utils/crypto.js';
 
-export function createApp(db: Database.Database, waService?: WaService, aiParserService?: AiParserService) {
+const googleClient = new OAuth2Client();
+
+export function createApp(db: Database.Database, waManager?: WaServiceManager, aiParserService?: AiParserService) {
   const app = new Hono();
 
   app.use('*', cors());
@@ -18,23 +24,232 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
   const categoryService = new CategoryService(db);
   const transactionService = new TransactionService(db);
 
-  // Health check
+  // Auth Middleware
+  const authMiddleware = async (c: any, next: any) => {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Akses ditolak. Token otentikasi tidak ditemukan.' }, 401);
+    }
+    const token = authHeader.substring(7);
+    const payload = verifyToken(token);
+    if (!payload) {
+      return c.json({ error: 'Token otentikasi tidak valid atau telah kedaluwarsa.' }, 401);
+    }
+    c.set('userId', payload.userId);
+    await next();
+  };
+
+  // Global 404 handler
+  app.notFound((c) => {
+    return c.json({ error: `Route not found: ${c.req.method} ${c.req.url}` }, 404);
+  });
+
+  // Health check (Public)
+  const registerAuthRoutes = (pathPrefix: string) => {
+    app.post(`${pathPrefix}/register`, async (c) => {
+      const schema = z.object({
+        name: z.string().min(1, 'Nama lengkap wajib diisi'),
+        email: z.string().email('Format email tidak valid'),
+        password: z.string().min(6, 'Kata sandi minimal 6 karakter'),
+      });
+
+      const body = await c.req.json().catch(() => null);
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.issues[0].message }, 400);
+      }
+
+      const { name, email, password } = parsed.data;
+
+      const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+      if (existing) {
+        return c.json({ error: 'Email sudah terdaftar. Silakan gunakan email lain atau login.' }, 400);
+      }
+
+      const userId = 'u_' + cryptoNative();
+      const passwordHash = await hashPassword(password);
+
+      db.prepare(`
+        INSERT INTO users (id, name, email, password_hash)
+        VALUES (?, ?, ?, ?)
+      `).run(userId, name, email, passwordHash);
+
+      seedDefaultCategories(db, userId);
+
+      const token = generateToken({ userId, email });
+      const user = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
+
+      return c.json({ data: { token, user } }, 201);
+    });
+
+    app.post(`${pathPrefix}/login`, async (c) => {
+      const schema = z.object({
+        identifier: z.string().min(1, 'Email atau nama pengguna wajib diisi'),
+        password: z.string().min(1, 'Kata sandi wajib diisi'),
+      });
+
+      const body = await c.req.json().catch(() => null);
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.issues[0].message }, 400);
+      }
+
+      const { identifier, password } = parsed.data;
+
+      const user = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?').get(identifier, identifier) as any;
+      if (!user || !user.password_hash) {
+        return c.json({ error: 'Email/Username atau kata sandi salah' }, 401);
+      }
+
+      const match = await comparePassword(password, user.password_hash);
+      if (!match) {
+        return c.json({ error: 'Email/Username atau kata sandi salah' }, 401);
+      }
+
+      const token = generateToken({ userId: user.id, email: user.email });
+      delete user.password_hash;
+
+      return c.json({ data: { token, user } });
+    });
+
+    app.post(`${pathPrefix}/google`, async (c) => {
+      const schema = z.object({
+        idToken: z.string().optional(),
+        email: z.string().email().optional(),
+        name: z.string().optional(),
+        googleId: z.string().optional(),
+        avatarUrl: z.string().optional(),
+      });
+
+      const body = await c.req.json().catch(() => null);
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.issues[0].message }, 400);
+      }
+
+      let { idToken, email, name, googleId, avatarUrl } = parsed.data;
+
+      if (idToken) {
+        try {
+          const ticket = await googleClient.verifyIdToken({
+            idToken,
+          });
+          const payload = ticket.getPayload();
+          if (payload) {
+            email = payload.email;
+            name = payload.name;
+            googleId = payload.sub;
+            avatarUrl = payload.picture;
+          }
+        } catch (e) {}
+      }
+
+      if (!email) {
+        return c.json({ error: 'Gagal mendapatkan data akun Google' }, 400);
+      }
+
+      let user = db.prepare('SELECT * FROM users WHERE email = ? OR google_id = ?').get(email, googleId || '') as any;
+
+      if (!user) {
+        const userId = 'u_' + cryptoNative();
+        name = name || email.split('@')[0];
+        avatarUrl = avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(name);
+
+        db.prepare(`
+          INSERT INTO users (id, name, email, google_id, avatar_url)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(userId, name, email, googleId || null, avatarUrl);
+
+        seedDefaultCategories(db, userId);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+      } else if (googleId && !user.google_id) {
+        db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
+      }
+
+      const token = generateToken({ userId: user.id, email: user.email });
+      delete user.password_hash;
+
+      return c.json({ data: { token, user } });
+    });
+
+    app.get(`${pathPrefix}/me`, authMiddleware, (c: any) => {
+      const userId = c.get('userId');
+      const user = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
+      if (!user) return c.json({ error: 'User not found' }, 404);
+      return c.json({ data: user });
+    });
+
+    // Step 2 of registration: set username + avatar
+    app.post(`${pathPrefix}/setup-profile`, authMiddleware, async (c: any) => {
+      const userId = c.get('userId');
+
+      const schema = z.object({
+        username: z.string()
+          .min(3, 'Username minimal 3 karakter')
+          .max(30, 'Username maksimal 30 karakter')
+          .regex(/^[a-z0-9_.]+$/, 'Username hanya boleh huruf kecil, angka, titik, dan underscore'),
+        avatar_url: z.string().optional(),
+      });
+
+      const body = await c.req.json().catch(() => null);
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.issues[0].message }, 400);
+      }
+
+      const { username, avatar_url } = parsed.data;
+
+      // Check username uniqueness (excluding current user)
+      const existing = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, userId);
+      if (existing) {
+        return c.json({ error: 'Username sudah dipakai. Coba username lain.' }, 400);
+      }
+
+      db.prepare('UPDATE users SET username = ?, avatar_url = COALESCE(?, avatar_url) WHERE id = ?')
+        .run(username, avatar_url ?? null, userId);
+
+      const user = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
+      return c.json({ data: user });
+    });
+
+    // Check username availability (public, no auth needed)
+    app.get(`${pathPrefix}/check-username/:username`, async (c) => {
+      const username = c.req.param('username');
+      if (!username || username.length < 3) {
+        return c.json({ available: false, error: 'Username terlalu pendek' });
+      }
+      const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+      return c.json({ available: !existing });
+    });
+  };
+
+  registerAuthRoutes('/api/auth');
+  registerAuthRoutes('/auth');
+
   app.get('/api/health', (c) => {
     return c.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
-
-  // Wallets Endpoints
-  app.get('/api/wallets', (c) => {
-    return c.json({ data: walletService.getAll() });
+  app.get('/health', (c) => {
+    return c.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  app.get('/api/wallets/:id', (c) => {
-    const wallet = walletService.getById(c.req.param('id'));
+  // --- PROTECTED APIS (Requires JWT) ---
+  
+  // Wallets Endpoints
+  app.get('/api/wallets', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    return c.json({ data: walletService.getAll(userId) });
+  });
+
+  app.get('/api/wallets/:id', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    const wallet = walletService.getById(c.req.param('id'), userId);
     if (!wallet) return c.json({ error: 'Wallet not found' }, 404);
     return c.json({ data: wallet });
   });
 
-  app.post('/api/wallets', async (c) => {
+  app.post('/api/wallets', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const schema = z.object({
       name: z.string().min(1, 'Nama dompet wajib diisi'),
       type: z.string().min(1, 'Tipe dompet wajib diisi'),
@@ -49,11 +264,12 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       return c.json({ error: parsed.error.issues[0].message }, 400);
     }
 
-    const wallet = walletService.create(parsed.data);
+    const wallet = walletService.create(userId, parsed.data);
     return c.json({ data: wallet }, 201);
   });
 
-  app.put('/api/wallets/:id', async (c) => {
+  app.put('/api/wallets/:id', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const schema = z.object({
       name: z.string().optional(),
       type: z.string().optional(),
@@ -67,23 +283,26 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       return c.json({ error: parsed.error.issues[0].message }, 400);
     }
 
-    const wallet = walletService.update(c.req.param('id'), parsed.data);
+    const wallet = walletService.update(c.req.param('id'), userId, parsed.data);
     if (!wallet) return c.json({ error: 'Wallet not found' }, 404);
     return c.json({ data: wallet });
   });
 
-  app.delete('/api/wallets/:id', (c) => {
-    const deleted = walletService.delete(c.req.param('id'));
+  app.delete('/api/wallets/:id', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    const deleted = walletService.delete(c.req.param('id'), userId);
     if (!deleted) return c.json({ error: 'Wallet not found' }, 404);
     return c.json({ success: true });
   });
 
   // Categories Endpoints
-  app.get('/api/categories', (c) => {
-    return c.json({ data: categoryService.getAll() });
+  app.get('/api/categories', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    return c.json({ data: categoryService.getAll(userId) });
   });
 
-  app.post('/api/categories', async (c) => {
+  app.post('/api/categories', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const schema = z.object({
       name: z.string().min(1, 'Nama kategori wajib diisi'),
       type: z.enum(['income', 'expense', 'transfer']),
@@ -97,21 +316,23 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       return c.json({ error: parsed.error.issues[0].message }, 400);
     }
 
-    const category = categoryService.create(parsed.data);
+    const category = categoryService.create(userId, parsed.data);
     return c.json({ data: category }, 201);
   });
 
   // Transactions Endpoints
-  app.get('/api/transactions', (c) => {
+  app.get('/api/transactions', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
     const wallet_id = c.req.query('wallet_id');
     const startDate = c.req.query('startDate');
     const endDate = c.req.query('endDate');
 
-    const transactions = transactionService.getAll({ wallet_id, startDate, endDate });
+    const transactions = transactionService.getAll(userId, { wallet_id, startDate, endDate });
     return c.json({ data: transactions });
   });
 
-  app.post('/api/transactions', async (c) => {
+  app.post('/api/transactions', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const schema = z.object({
       wallet_id: z.string().min(1, 'Dompet asal wajib diisi'),
       target_wallet_id: z.string().optional().nullable(),
@@ -129,33 +350,37 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     }
 
     try {
-      const transaction = transactionService.create(parsed.data);
+      const transaction = transactionService.create(userId, parsed.data);
       return c.json({ data: transaction }, 201);
     } catch (err: any) {
       return c.json({ error: err.message || 'Gagal mencatat transaksi' }, 400);
     }
   });
 
-  app.delete('/api/transactions/:id', (c) => {
-    const deleted = transactionService.delete(c.req.param('id'));
+  app.delete('/api/transactions/:id', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    const deleted = transactionService.delete(c.req.param('id'), userId);
     if (!deleted) return c.json({ error: 'Transaksi tidak ditemukan' }, 404);
     return c.json({ success: true });
   });
 
   // Dashboard Summary Endpoint
-  app.get('/api/dashboard', (c) => {
+  app.get('/api/dashboard', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
     const month = c.req.query('month');
-    const summary = transactionService.getDashboardSummary(month);
+    const summary = transactionService.getDashboardSummary(userId, month);
     return c.json({ data: summary });
   });
 
   // Profile Endpoints
-  app.get('/api/profile', (c) => {
-    const profile = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default');
+  app.get('/api/profile', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    const profile = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
     return c.json({ data: profile });
   });
 
-  app.post('/api/profile/avatar', async (c) => {
+  app.post('/api/profile/avatar', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const body = await c.req.json().catch(() => null);
     if (!body || !body.avatar_base64) {
       return c.json({ error: 'Format foto avatar tidak valid (base64 required)' }, 400);
@@ -163,10 +388,10 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
 
     const base64Str = body.avatar_base64 as string;
     const approxSizeBytes = Math.ceil((base64Str.length * 3) / 4);
-    const maxSizeBytes = 2 * 1024 * 1024; // 2MB limit
+    const maxSizeBytes = 2 * 1024 * 1024;
 
     if (approxSizeBytes > maxSizeBytes) {
-      return c.json({ error: 'Ukuran foto melebihi batas maksimum 2MB. Silakan pilih foto yang lebih kecil.' }, 400);
+      return c.json({ error: 'Ukuran foto melebihi batas maksimum 2MB.' }, 400);
     }
 
     let avatarUrl = base64Str;
@@ -174,12 +399,13 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       avatarUrl = `data:image/jpeg;base64,${base64Str}`;
     }
 
-    db.prepare('UPDATE profile SET avatar_url = ? WHERE id = ?').run(avatarUrl, 'user_default');
-    const profile = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default');
+    db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, userId);
+    const profile = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
     return c.json({ data: profile });
   });
 
-  app.put('/api/profile', async (c) => {
+  app.put('/api/profile', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const schema = z.object({
       name: z.string().optional(),
       username: z.string().optional(),
@@ -199,8 +425,8 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       return c.json({ error: parsed.error.issues[0].message }, 400);
     }
 
-    const current = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default') as any;
-    if (!current) return c.json({ error: 'Profile not found' }, 404);
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    if (!current) return c.json({ error: 'User not found' }, 404);
 
     const updated = {
       name: parsed.data.name ?? current.name,
@@ -216,9 +442,9 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     };
 
     db.prepare(`
-      UPDATE profile
+      UPDATE users
       SET name = ?, username = ?, avatar_url = ?, email = ?, wa_number = ?, wa_bot_enabled = ?, ai_provider_type = ?, ai_base_url = ?, ai_api_key = ?, ai_model = ?
-      WHERE id = 'user_default'
+      WHERE id = ?
     `).run(
       updated.name,
       updated.username,
@@ -229,14 +455,17 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       updated.ai_provider_type,
       updated.ai_base_url,
       updated.ai_api_key,
-      updated.ai_model
+      updated.ai_model,
+      userId
     );
 
-    const res = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default');
+    const res = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
     return c.json({ data: res });
   });
 
-  app.post('/api/profile', async (c) => {
+  // POST alias for profile update (Flutter client uses _postWithFallback)
+  app.post('/api/profile', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const schema = z.object({
       name: z.string().optional(),
       username: z.string().optional(),
@@ -256,8 +485,8 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       return c.json({ error: parsed.error.issues[0].message }, 400);
     }
 
-    const current = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default') as any;
-    if (!current) return c.json({ error: 'Profile not found' }, 404);
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    if (!current) return c.json({ error: 'User not found' }, 404);
 
     const updated = {
       name: parsed.data.name ?? current.name,
@@ -273,9 +502,9 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     };
 
     db.prepare(`
-      UPDATE profile
+      UPDATE users
       SET name = ?, username = ?, avatar_url = ?, email = ?, wa_number = ?, wa_bot_enabled = ?, ai_provider_type = ?, ai_base_url = ?, ai_api_key = ?, ai_model = ?
-      WHERE id = 'user_default'
+      WHERE id = ?
     `).run(
       updated.name,
       updated.username,
@@ -286,24 +515,26 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
       updated.ai_provider_type,
       updated.ai_base_url,
       updated.ai_api_key,
-      updated.ai_model
+      updated.ai_model,
+      userId
     );
 
-    const res = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default');
+    const res = db.prepare('SELECT id, name, username, email, avatar_url, wa_number, wa_bot_enabled, ai_provider_type, ai_base_url, ai_model FROM users WHERE id = ?').get(userId);
     return c.json({ data: res });
   });
 
-  // AI Endpoint: Generate Financial Advice
-  app.get('/api/ai/advice', async (c) => {
+  // AI Endpoints
+  app.get('/api/ai/advice', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const month = c.req.query('month') || new Date().toISOString().substring(0, 7);
-    const summary = transactionService.getDashboardSummary(month);
+    const summary = transactionService.getDashboardSummary(userId, month);
     const parser = aiParserService || new AiParserService(db);
-    const advice = await parser.generateFinancialAdvice(summary, month);
+    const advice = await parser.generateFinancialAdvice(summary as any, month, userId);
     return c.json({ data: { advice, month } });
   });
 
-  // AI Endpoint: Chat Query with Financial Context
-  app.post('/api/ai/chat', async (c) => {
+  app.post('/api/ai/chat', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const body = await c.req.json().catch(() => ({}));
     const { message, history } = body;
     if (!message) {
@@ -311,39 +542,40 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     }
 
     const month = new Date().toISOString().substring(0, 7);
-    const summary = transactionService.getDashboardSummary(month);
-    const wallets = walletService.getAll();
-    const transactions = transactionService.getAll();
+    const summary = transactionService.getDashboardSummary(userId, month);
+    const wallets = walletService.getAll(userId);
+    const transactions = transactionService.getAll(userId);
 
     const parser = aiParserService || new AiParserService(db);
     const result = await parser.chatWithFinancialAssistant(
+      userId,
       message,
       history || [],
       wallets,
-      transactions,
-      summary
+      transactions as any,
+      summary as any
     );
 
     return c.json({ data: result });
   });
 
-  // AI Endpoint: Get Chat History
-  app.get('/api/ai/chat/messages', (c) => {
+  app.get('/api/ai/chat/messages', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
     const messages = db.prepare(`
       SELECT * FROM ai_chat_messages
+      WHERE user_id = ?
       ORDER BY created_at ASC
-    `).all();
+    `).all(userId);
     return c.json({ data: messages });
   });
 
-  // AI Endpoint: Clear Chat History
-  app.delete('/api/ai/chat/messages', (c) => {
-    db.prepare('DELETE FROM ai_chat_messages').run();
+  app.delete('/api/ai/chat/messages', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    db.prepare('DELETE FROM ai_chat_messages WHERE user_id = ?').run(userId);
     return c.json({ success: true });
   });
 
-  // AI Endpoint: Fetch Models dynamically from provider
-  app.post('/api/ai/models', async (c) => {
+  app.post('/api/ai/models', authMiddleware, async (c: any) => {
     const body = await c.req.json().catch(() => ({}));
     const { baseUrl, apiKey } = body;
 
@@ -352,8 +584,9 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     return c.json({ data: models });
   });
 
-  // Real System Telemetry & Infrastructure Endpoint
-  app.get('/api/system/status', async (c) => {
+  // System status (authenticated — per-user WA status)
+  app.get('/api/system/status', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
@@ -361,42 +594,18 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     const cpus = os.cpus();
     const cpuModel = cpus.length > 0 ? cpus[0].model : 'Generic CPU';
 
-    // Calculate process uptime
     const uptimeSec = Math.floor(process.uptime());
     const days = Math.floor(uptimeSec / (3600 * 24));
     const hours = Math.floor((uptimeSec % (3600 * 24)) / 3600);
     const minutes = Math.floor((uptimeSec % 3600) / 60);
     const uptimeStr = days > 0 ? `${days}d ${hours}h ${minutes}m` : `${hours}h ${minutes}m`;
 
-    // DB metrics
-    const txCount = (db.prepare('SELECT COUNT(*) as count FROM transactions').get() as any).count || 0;
-    const walletCount = (db.prepare('SELECT COUNT(*) as count FROM wallets').get() as any).count || 0;
+    const txCount = (db.prepare('SELECT COUNT(*) as count FROM transactions WHERE user_id = ?').get(userId) as any).count || 0;
+    const walletCount = (db.prepare('SELECT COUNT(*) as count FROM wallets WHERE user_id = ?').get(userId) as any).count || 0;
 
-    const profile = db.prepare('SELECT * FROM profile WHERE id = ?').get('user_default') as any;
-
-    const waStatus = waService ? waService.getStatus() : { status: 'DISCONNECTED', qrCode: null, connectedNumber: null };
-
-    // Test connection to active AI Gateway
-    let aiGatewayOnline = false;
-    let aiLatencyMs = 0;
-    const startPing = Date.now();
-    try {
-      const pingUrl = (profile?.ai_base_url || 'http://localhost:20128/v1').replace(/\/+$/, '') + '/models';
-      const pingHeaders: Record<string, string> = {};
-      if (profile?.ai_api_key) {
-        pingHeaders['Authorization'] = `Bearer ${profile.ai_api_key}`;
-      }
-      const pingRes = await fetch(pingUrl, {
-        headers: pingHeaders,
-        signal: AbortSignal.timeout(2000),
-      }).catch(() => null);
-      aiLatencyMs = Date.now() - startPing;
-      if (pingRes && pingRes.ok) {
-        aiGatewayOnline = true;
-      }
-    } catch (_) {
-      aiGatewayOnline = false;
-    }
+    const waStatus = waManager
+      ? waManager.getStatus(userId)
+      : { status: 'DISCONNECTED', qrCode: null, connectedNumber: null };
 
     return c.json({
       data: {
@@ -413,12 +622,6 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
         uptime: uptimeStr,
         tx_count: txCount,
         wallet_count: walletCount,
-        ai_gateway_online: aiGatewayOnline,
-        ai_gateway_latency_ms: aiLatencyMs > 0 ? aiLatencyMs : 12,
-        active_ai_model: profile?.ai_model || 'gpt-3.5-turbo',
-        ai_provider_type: profile?.ai_provider_type || '9router',
-        ai_base_url: profile?.ai_base_url || 'http://localhost:20128/v1',
-        wa_bot_enabled: profile?.wa_bot_enabled === 1,
         wa_bot_status: waStatus.status,
         wa_qr_code: waStatus.qrCode,
         wa_connected_number: waStatus.connectedNumber,
@@ -426,12 +629,78 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     });
   });
 
-  // WhatsApp Status Endpoint
-  app.get('/api/wa/status', (c) => {
-    if (!waService) {
-      return c.json({ status: 'DISCONNECTED', qrCode: null, connectedNumber: null });
+  // --- WhatsApp Endpoints (all require auth) ---
+
+  // Get WA status for the authenticated user
+  app.get('/api/wa/status', authMiddleware, (c: any) => {
+    const userId = c.get('userId');
+    const status = waManager
+      ? waManager.getStatus(userId)
+      : { status: 'DISCONNECTED', qrCode: null, connectedNumber: null };
+    return c.json({ data: status });
+  });
+
+  // Start WA socket for the authenticated user (initiates QR flow)
+  app.post('/api/wa/connect', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
+    if (!waManager) {
+      return c.json({ error: 'WhatsApp service tidak tersedia' }, 503);
     }
-    return c.json({ data: waService.getStatus() });
+
+    const current = waManager.getStatus(userId);
+    if (current.status === 'CONNECTED') {
+      return c.json({ error: 'WhatsApp sudah terhubung' }, 400);
+    }
+
+    const service = waManager.getOrCreate(userId);
+    // Start in background — QR will be available via GET /api/wa/status
+    service.startSocket(false).catch((err) => {
+      console.error(`[WA:${userId}] startSocket error:`, err);
+    });
+
+    return c.json({ data: { message: 'Memulai koneksi WhatsApp. Ambil QR via GET /api/wa/status.' } });
+  });
+
+  // Request pairing code (alternative to QR, for single-device use)
+  app.post('/api/wa/request-pairing-code', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
+    if (!waManager) {
+      return c.json({ error: 'WhatsApp service tidak tersedia' }, 503);
+    }
+
+    const schema = z.object({
+      phoneNumber: z.string().min(7, 'Nomor telepon tidak valid'),
+    });
+
+    const body = await c.req.json().catch(() => null);
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.issues[0].message }, 400);
+    }
+
+    const current = waManager.getStatus(userId);
+    if (current.status === 'CONNECTED') {
+      return c.json({ error: 'WhatsApp sudah terhubung. Disconnect dulu sebelum pairing ulang.' }, 400);
+    }
+
+    try {
+      const service = waManager.getOrCreate(userId);
+      const code = await service.requestPairingCode(parsed.data.phoneNumber);
+      return c.json({ data: { code } });
+    } catch (err: any) {
+      console.error(`[WA:${userId}] requestPairingCode error:`, err);
+      return c.json({ error: err.message || 'Gagal mendapatkan kode pairing' }, 500);
+    }
+  });
+
+  // Disconnect WA for the authenticated user
+  app.post('/api/wa/disconnect', authMiddleware, async (c: any) => {
+    const userId = c.get('userId');
+    if (!waManager) {
+      return c.json({ error: 'WhatsApp service tidak tersedia' }, 503);
+    }
+    await waManager.disconnectUser(userId);
+    return c.json({ data: { message: 'WhatsApp berhasil diputus.' } });
   });
 
   return app;

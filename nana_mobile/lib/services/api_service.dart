@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import '../models/wallet.dart';
 import '../models/category.dart';
@@ -11,28 +9,44 @@ import '../models/system_status.dart';
 
 class ApiService {
   late String baseUrl;
+  String? token;
 
-  ApiService({String? baseUrl}) {
+  ApiService({String? baseUrl, this.token}) {
     if (baseUrl != null) {
       this.baseUrl = baseUrl;
     } else {
-      // Default to Proxmox Home Server Tunnel (Cloudflare) so app connects immediately out-of-the-box
-      this.baseUrl = 'https://focusing-referral-emma-helicopter.trycloudflare.com/api';
+      this.baseUrl = 'http://10.0.3.2:3000/api';
     }
+  }
+
+  Future<Map<String, String>> _getHeaders() async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
   }
 
   Future<http.Response> _getWithFallback(String path) async {
     final urls = [
       '$baseUrl$path',
-      if (baseUrl.contains('10.0.3.2')) baseUrl.replaceAll('10.0.3.2', '10.0.2.2') + path,
-      if (baseUrl.contains('10.0.3.2')) baseUrl.replaceAll('10.0.3.2', '192.168.18.4') + path,
+      'http://10.0.3.2:3000/api$path',
+      'http://10.0.2.2:3000/api$path',
+      'http://192.168.18.4:3000/api$path',
+      'http://192.168.18.27:3000/api$path',
     ];
+
+    final headers = await _getHeaders();
 
     for (final url in urls) {
       try {
-        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
-        baseUrl = url.substring(0, url.indexOf('/api') + 4);
-        return res;
+        final res = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 3));
+        if (res.statusCode != 404) {
+          if (url.contains('/api')) {
+            baseUrl = url.substring(0, url.indexOf('/api') + 4);
+          }
+          return res;
+        }
       } catch (_) {
         continue;
       }
@@ -43,25 +57,147 @@ class ApiService {
   Future<http.Response> _postWithFallback(String path, Map<String, dynamic> body) async {
     final urls = [
       '$baseUrl$path',
-      if (baseUrl.contains('10.0.3.2')) baseUrl.replaceAll('10.0.3.2', '10.0.2.2') + path,
-      if (baseUrl.contains('10.0.3.2')) baseUrl.replaceAll('10.0.3.2', '192.168.18.4') + path,
+      'http://10.0.3.2:3000/api$path',
+      'http://10.0.2.2:3000/api$path',
+      'http://192.168.18.4:3000/api$path',
+      'http://192.168.18.27:3000/api$path',
     ];
+
+    final headers = await _getHeaders();
 
     for (final url in urls) {
       try {
         final res = await http.post(
           Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
+          headers: headers,
           body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 4));
-        // If we get a response, save working base URL and return
-        baseUrl = url.substring(0, url.indexOf('/api') + 4);
-        return res;
+        ).timeout(const Duration(seconds: 3));
+        if (res.statusCode != 404) {
+          if (url.contains('/api')) {
+            baseUrl = url.substring(0, url.indexOf('/api') + 4);
+          }
+          return res;
+        }
       } catch (_) {
         continue;
       }
     }
     throw Exception('Tidak dapat terhubung ke server backend');
+  }
+
+  // --- AUTH METHODS ---
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final res = await _postWithFallback('/auth/register', {
+      'name': name,
+      'email': email,
+      'password': password,
+    });
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('Server mengembalikan respon tidak valid (Status ${res.statusCode})');
+    }
+    if (res.statusCode == 201) {
+      return json['data'];
+    }
+    throw Exception(json['error'] ?? 'Gagal mendaftar akun');
+  }
+
+  Future<Map<String, dynamic>> login({
+    required String identifier,
+    required String password,
+  }) async {
+    final res = await _postWithFallback('/auth/login', {
+      'identifier': identifier,
+      'password': password,
+    });
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('Server mengembalikan respon tidak valid (Status ${res.statusCode})');
+    }
+    if (res.statusCode == 200) {
+      return json['data'];
+    }
+    throw Exception(json['error'] ?? 'Gagal masuk akun');
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle({
+    String? idToken,
+    String? email,
+    String? name,
+    String? googleId,
+    String? avatarUrl,
+  }) async {
+    final res = await _postWithFallback('/auth/google', {
+      if (idToken != null) 'idToken': idToken,
+      if (email != null) 'email': email,
+      if (name != null) 'name': name,
+      if (googleId != null) 'googleId': googleId,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+    });
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('Server mengembalikan respon tidak valid (Status ${res.statusCode})');
+    }
+    if (res.statusCode == 200) {
+      return json['data'];
+    }
+    throw Exception(json['error'] ?? 'Gagal autentikasi Google');
+  }
+
+  Future<UserProfile?> getMe() async {
+    try {
+      final res = await _getWithFallback('/auth/me');
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        return UserProfile.fromJson(json['data']);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // --- APP API METHODS ---
+
+  /// Step 2 of registration: set username and optional avatar
+  Future<UserProfile> setupProfile({
+    required String username,
+    String? avatarUrl,
+  }) async {
+    final res = await _postWithFallback('/auth/setup-profile', {
+      'username': username,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    });
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('Server mengembalikan respon tidak valid');
+    }
+    if (res.statusCode == 200) {
+      return UserProfile.fromJson(json['data']);
+    }
+    throw Exception(json['error'] ?? 'Gagal menyimpan profil');
+  }
+
+  /// Check if a username is available (no auth required)
+  Future<bool> checkUsernameAvailable(String username) async {
+    try {
+      final res = await _getWithFallback('/auth/check-username/$username');
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        return json['available'] == true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   Future<List<Wallet>> getWallets() async {
@@ -99,8 +235,36 @@ class ApiService {
     throw Exception(errorJson['error'] ?? 'Gagal membuat dompet');
   }
 
+  Future<Wallet> updateWallet({
+    required String id,
+    String? name,
+    String? type,
+    String? icon,
+    String? color,
+  }) async {
+    final headers = await _getHeaders();
+    final res = await http.put(
+      Uri.parse('$baseUrl/wallets/$id'),
+      headers: headers,
+      body: jsonEncode({
+        if (name != null) 'name': name,
+        if (type != null) 'type': type,
+        if (icon != null) 'icon': icon,
+        if (color != null) 'color': color,
+      }),
+    );
+
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return Wallet.fromJson(json['data']);
+    }
+    final errorJson = jsonDecode(res.body);
+    throw Exception(errorJson['error'] ?? 'Gagal memperbarui dompet');
+  }
+
   Future<void> deleteWallet(String id) async {
-    final res = await http.delete(Uri.parse('$baseUrl/wallets/$id'));
+    final headers = await _getHeaders();
+    final res = await http.delete(Uri.parse('$baseUrl/wallets/$id'), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('Gagal menghapus dompet');
     }
@@ -162,7 +326,8 @@ class ApiService {
   }
 
   Future<void> deleteTransaction(String id) async {
-    final res = await http.delete(Uri.parse('$baseUrl/wallets/$id'));
+    final headers = await _getHeaders();
+    final res = await http.delete(Uri.parse('$baseUrl/transactions/$id'), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('Gagal menghapus transaksi');
     }
@@ -231,7 +396,8 @@ class ApiService {
 
   Future<void> clearAiChatMessages() async {
     try {
-      final res = await http.delete(Uri.parse('$baseUrl/ai/chat/messages')).timeout(const Duration(seconds: 4));
+      final headers = await _getHeaders();
+      final res = await http.delete(Uri.parse('$baseUrl/ai/chat/messages'), headers: headers).timeout(const Duration(seconds: 4));
       if (res.statusCode != 200) {
         throw Exception('Gagal menghapus riwayat chat');
       }
@@ -280,43 +446,24 @@ class ApiService {
     } catch (_) {}
     return UserProfile(
       id: 'user_default',
-      name: 'Naufal Pinandhita',
-      username: 'Nopal🐐',
+      name: 'Pengguna Nana',
+      username: 'User',
       avatarUrl: '',
-      email: 'naufal@nana.home',
-      waNumber: '+6281234567890',
+      email: 'user@nana.home',
+      waNumber: '',
       waBotEnabled: true,
-      aiModel: 'Llama 3 (70B)',
+      aiModel: 'gpt-3.5-turbo',
     );
   }
 
   Future<UserProfile> updateProfile(Map<String, dynamic> data) async {
-    try {
-      final res = await _postWithFallback('/profile', data);
-      if (res.statusCode == 200) {
-        final json = jsonDecode(res.body);
-        return UserProfile.fromJson(json['data']);
-      }
-      final errorJson = jsonDecode(res.body);
-      throw Exception(errorJson['error'] ?? 'Gagal memperbarui profil');
-    } catch (e) {
-      if (e is Exception && e.toString().contains('Gagal memperbarui profil')) {
-        rethrow;
-      }
-      return UserProfile(
-        id: 'user_default',
-        name: data['name'] ?? 'Naufal Pinandhita',
-        username: data['username'] ?? 'Nopal🐐',
-        avatarUrl: data['avatar_url'] ?? '',
-        email: data['email'] ?? 'naufal@nana.home',
-        waNumber: data['wa_number'] ?? '+6281234567890',
-        waBotEnabled: data['wa_bot_enabled'] == 1,
-        aiProviderType: data['ai_provider_type'] ?? '9router',
-        aiBaseUrl: data['ai_base_url'] ?? 'http://192.168.18.27:20128/v1',
-        aiApiKey: data['ai_api_key'] ?? '',
-        aiModel: data['ai_model'] ?? 'gpt-3.5-turbo',
-      );
+    final res = await _postWithFallback('/profile', data);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return UserProfile.fromJson(json['data']);
     }
+    final errorJson = jsonDecode(res.body);
+    throw Exception(errorJson['error'] ?? 'Gagal memperbarui profil');
   }
 
   Future<SystemStatus> getSystemStatus() async {
@@ -341,7 +488,7 @@ class ApiService {
       walletCount: 0,
       aiGatewayOnline: true,
       aiGatewayLatencyMs: 14,
-      activeAiModel: 'Llama 3 (70B)',
+      activeAiModel: 'gpt-3.5-turbo',
       waBotEnabled: true,
       waBotStatus: 'DISCONNECTED',
       waQrCode: null,
@@ -357,5 +504,40 @@ class ApiService {
       }
     } catch (_) {}
     return {'status': 'DISCONNECTED', 'qrCode': null};
+  }
+
+  /// Start WA QR pairing flow for the current user
+  Future<void> connectWa() async {
+    final res = await _postWithFallback('/wa/connect', {});
+    if (res.statusCode != 200) {
+      final errorJson = jsonDecode(res.body);
+      throw Exception(errorJson['error'] ?? 'Gagal memulai koneksi WhatsApp');
+    }
+  }
+
+  /// Request an 8-digit pairing code for [phoneNumber] (e.g. "628123456789")
+  Future<String> requestWaPairingCode(String phoneNumber) async {
+    final res = await _postWithFallback('/wa/request-pairing-code', {
+      'phoneNumber': phoneNumber,
+    });
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('Server mengembalikan respon tidak valid');
+    }
+    if (res.statusCode == 200) {
+      return json['data']?['code'] ?? '';
+    }
+    throw Exception(json['error'] ?? 'Gagal mendapatkan kode pairing');
+  }
+
+  /// Disconnect WA for the current user
+  Future<void> disconnectWa() async {
+    final res = await _postWithFallback('/wa/disconnect', {});
+    if (res.statusCode != 200) {
+      final errorJson = jsonDecode(res.body);
+      throw Exception(errorJson['error'] ?? 'Gagal memutus koneksi WhatsApp');
+    }
   }
 }

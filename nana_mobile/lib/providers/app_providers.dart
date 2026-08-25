@@ -8,8 +8,15 @@ import '../models/dashboard_summary.dart';
 import '../models/user_profile.dart';
 import '../models/system_status.dart';
 
+/// Single source of truth untuk JWT token di memory.
+/// Semua provider yang butuh auth watch ini.
+final authTokenProvider = StateProvider<String?>((ref) => null);
+
+/// ApiService di-recreate setiap kali token berubah,
+/// sehingga tidak ada stale token di memory.
 final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+  final token = ref.watch(authTokenProvider);
+  return ApiService(token: token);
 });
 
 class WalletsNotifier extends StateNotifier<AsyncValue<List<Wallet>>> {
