@@ -380,7 +380,7 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
     let aiLatencyMs = 0;
     const startPing = Date.now();
     try {
-      const pingUrl = (profile?.ai_base_url || 'http://192.168.18.27:20128/v1').replace(/\/+$/, '') + '/models';
+      const pingUrl = (profile?.ai_base_url || 'http://localhost:20128/v1').replace(/\/+$/, '') + '/models';
       const pingHeaders: Record<string, string> = {};
       if (profile?.ai_api_key) {
         pingHeaders['Authorization'] = `Bearer ${profile.ai_api_key}`;
@@ -416,7 +416,7 @@ export function createApp(db: Database.Database, waService?: WaService, aiParser
         ai_gateway_latency_ms: aiLatencyMs > 0 ? aiLatencyMs : 12,
         active_ai_model: profile?.ai_model || 'gpt-3.5-turbo',
         ai_provider_type: profile?.ai_provider_type || '9router',
-        ai_base_url: profile?.ai_base_url || 'http://192.168.18.27:20128/v1',
+        ai_base_url: profile?.ai_base_url || 'http://localhost:20128/v1',
         wa_bot_enabled: profile?.wa_bot_enabled === 1,
         wa_bot_status: waStatus.status,
         wa_qr_code: waStatus.qrCode,

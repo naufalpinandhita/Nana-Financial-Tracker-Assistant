@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           cd nana_mobile
-          flutter build apk --release
+          flutter build apk --release --verbose
 
       - name: Build Fat Release APK (Universal)
         shell: bash
