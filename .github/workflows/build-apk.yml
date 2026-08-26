@@ -68,6 +68,7 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           generate_release_notes: true
           make_latest: true
+          overwrite: true
           files: |
             nana_mobile/build/app/outputs/flutter-apk/app-release.apk
         env:
