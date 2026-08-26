@@ -8,7 +8,7 @@ import '../models/user_profile.dart';
 import '../models/system_status.dart';
 
 class ApiService {
-  static const String defaultOfficialUrl = 'https://focusing-referral-emma-helicopter.trycloudflare.com/api';
+  static const String defaultOfficialUrl = 'https://absolute-blink-eagles-ecological.trycloudflare.com/api';
   late String baseUrl;
   String? token;
 
