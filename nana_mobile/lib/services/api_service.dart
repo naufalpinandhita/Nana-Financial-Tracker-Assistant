@@ -8,14 +8,15 @@ import '../models/user_profile.dart';
 import '../models/system_status.dart';
 
 class ApiService {
+  static const String defaultOfficialUrl = 'https://focusing-referral-emma-helicopter.trycloudflare.com/api';
   late String baseUrl;
   String? token;
 
   ApiService({String? baseUrl, this.token}) {
-    if (baseUrl != null) {
+    if (baseUrl != null && baseUrl.isNotEmpty) {
       this.baseUrl = baseUrl;
     } else {
-      this.baseUrl = 'http://10.0.3.2:3000/api';
+      this.baseUrl = defaultOfficialUrl;
     }
   }
 

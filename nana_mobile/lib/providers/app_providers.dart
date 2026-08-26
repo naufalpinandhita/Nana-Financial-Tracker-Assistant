@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/wallet.dart';
@@ -8,15 +9,47 @@ import '../models/dashboard_summary.dart';
 import '../models/user_profile.dart';
 import '../models/system_status.dart';
 
+final customServerUrlProvider = StateNotifierProvider<CustomServerUrlNotifier, String>((ref) {
+  return CustomServerUrlNotifier();
+});
+
+class CustomServerUrlNotifier extends StateNotifier<String> {
+  static const String _key = 'custom_backend_url';
+
+  CustomServerUrlNotifier() : super(ApiService.defaultOfficialUrl) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_key);
+    if (saved != null && saved.isNotEmpty) {
+      state = saved;
+    }
+  }
+
+  Future<void> setUrl(String url) async {
+    final cleanUrl = url.trim();
+    final prefs = await SharedPreferences.getInstance();
+    if (cleanUrl.isEmpty || cleanUrl == ApiService.defaultOfficialUrl) {
+      await prefs.remove(_key);
+      state = ApiService.defaultOfficialUrl;
+    } else {
+      await prefs.setString(_key, cleanUrl);
+      state = cleanUrl;
+    }
+  }
+}
+
 /// Single source of truth untuk JWT token di memory.
 /// Semua provider yang butuh auth watch ini.
 final authTokenProvider = StateProvider<String?>((ref) => null);
 
-/// ApiService di-recreate setiap kali token berubah,
-/// sehingga tidak ada stale token di memory.
+/// ApiService di-recreate setiap kali token atau server URL berubah.
 final apiServiceProvider = Provider<ApiService>((ref) {
   final token = ref.watch(authTokenProvider);
-  return ApiService(token: token);
+  final serverUrl = ref.watch(customServerUrlProvider);
+  return ApiService(baseUrl: serverUrl, token: token);
 });
 
 class WalletsNotifier extends StateNotifier<AsyncValue<List<Wallet>>> {

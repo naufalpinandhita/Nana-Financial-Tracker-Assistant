@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../providers/app_providers.dart';
-import '../services/api_service.dart';
 import '../theme/luminous_ledger_theme.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_app_bar.dart';
