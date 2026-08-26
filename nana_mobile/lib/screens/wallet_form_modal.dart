@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 import '../theme/luminous_ledger_theme.dart';
+import '../utils/currency_formatter.dart';
 
 class WalletFormModal extends ConsumerStatefulWidget {
   final String? walletId;
@@ -67,7 +68,9 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _balanceController = TextEditingController(
-      text: widget.initialBalance != null ? widget.initialBalance!.toStringAsFixed(0) : '',
+      text: widget.initialBalance != null && widget.initialBalance! > 0
+          ? CurrencyFormatter.formatNumber(widget.initialBalance!)
+          : '',
     );
     _selectedType = widget.initialType ?? 'Bank';
     _selectedIcon = widget.initialIcon ?? 'account_balance';
@@ -90,14 +93,15 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
       final balance = double.tryParse(_balanceController.text.replaceAll('.', '').replaceAll(',', '')) ?? 0.0;
 
       if (widget.walletId != null) {
-        // Edit Wallet Mode (API update support or refresh)
-        await ref.read(apiServiceProvider).createWallet(
+        // Edit Wallet Mode
+        await ref.read(apiServiceProvider).updateWallet(
+              id: widget.walletId!,
               name: name,
               type: _selectedType,
-              initialBalance: balance,
               icon: _selectedIcon,
               color: _selectedColor,
             );
+        await ref.read(walletsProvider.notifier).fetchWallets();
       } else {
         // Add Wallet Mode
         await ref.read(walletsProvider.notifier).addWallet(
@@ -287,6 +291,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
               TextFormField(
                 controller: _balanceController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [ThousandsSeparatorInputFormatter()],
                 style: LuminousLedgerTheme.financialStyle(fontSize: 14, color: Colors.white),
                 decoration: InputDecoration(
                   hintText: '0',

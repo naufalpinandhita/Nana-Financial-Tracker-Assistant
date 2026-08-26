@@ -99,7 +99,9 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         ),
                         profileAsync.when(
                           data: (profile) => Text(
-                            profile.username,
+                            profile.username != null && profile.username!.isNotEmpty
+                                ? '@${profile.username}'
+                                : profile.name,
                             style: const TextStyle(
                               fontSize: 11,
                               color: LuminousLedgerColors.onSurfaceVariant,

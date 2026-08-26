@@ -61,68 +61,70 @@ class _WalletManagementScreenState extends ConsumerState<WalletManagementScreen>
       body: Stack(
         children: [
           // Scrollable Body Canvas
-          RefreshIndicator(
-            onRefresh: () async {
-              ref.read(walletsProvider.notifier).fetchWallets();
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(
-                left: 16.0,
-                right: 16.0,
-                top: 90.0, // Space for top bar
-                bottom: 110.0, // Space for bottom navbar
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Page Title Header & Global Balance Card
-                  _buildHeaderAndTotalBalance(walletsAsync),
-                  const SizedBox(height: 20),
+          Positioned.fill(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.read(walletsProvider.notifier).fetchWallets();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(
+                  left: 16.0,
+                  right: 16.0,
+                  top: 90.0, // Space for top bar
+                  bottom: 150.0, // Space for bottom navbar & FAB
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Page Title Header & Global Balance Card
+                    _buildHeaderAndTotalBalance(walletsAsync),
+                    const SizedBox(height: 20),
 
-                  // Filter Chips & Search Bar
-                  _buildFilterAndSearchBar(),
-                  const SizedBox(height: 20),
+                    // Filter Chips & Search Bar
+                    _buildFilterAndSearchBar(),
+                    const SizedBox(height: 20),
 
-                  // Wallets Grid / List
-                  walletsAsync.when(
-                    data: (wallets) => _buildWalletsGrid(wallets),
-                    loading: () => const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(40.0),
-                        child: CircularProgressIndicator(),
+                    // Wallets Grid / List
+                    walletsAsync.when(
+                      data: (wallets) => _buildWalletsGrid(wallets),
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      error: (err, _) => GlassCard(
+                        child: Center(child: Text('Gagal memuat dompet: ${err.toString()}')),
                       ),
                     ),
-                    error: (err, _) => GlassCard(
-                      child: Center(child: Text('Gagal memuat dompet: ${err.toString()}')),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
 
-          // Custom Top App Bar (Mobile Profile Header)
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: CustomAppBar(title: 'Wallets'),
-          ),
+            // Custom Top App Bar (Mobile Profile Header)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: CustomAppBar(title: 'Wallets'),
+            ),
 
           // Custom Bottom Navigation Bar
           Positioned(
-            bottom: 0,
             left: 0,
             right: 0,
+            bottom: 0,
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 child: Container(
-                  padding: EdgeInsets.only(
+                  padding: const EdgeInsets.only(
                     top: 10,
-                    bottom: MediaQuery.of(context).padding.bottom + 8,
+                    bottom: 12,
                     left: 16,
                     right: 16,
                   ),
@@ -199,6 +201,7 @@ class _WalletManagementScreenState extends ConsumerState<WalletManagementScreen>
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 70.0),
         child: FloatingActionButton(
+          heroTag: 'add_wallet_fab',
           backgroundColor: LuminousLedgerColors.primary,
           elevation: 6,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -410,61 +413,110 @@ class _WalletManagementScreenState extends ConsumerState<WalletManagementScreen>
       return matchesSearch;
     }).toList();
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1,
-        mainAxisExtent: 150,
-        mainAxisSpacing: 14,
-      ),
-      itemCount: displayWallets.length + 1, // +1 for "Tambah Dompet" card
-      itemBuilder: (context, index) {
-        if (index == displayWallets.length) {
-          // Add New Wallet Card
-          return _buildAddWalletButtonCard();
-        }
-
-        final w = displayWallets[index];
-        return Dismissible(
-          key: Key(w.id),
-          direction: DismissDirection.endToStart,
-          confirmDismiss: (direction) async {
-            return await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Hapus Dompet?'),
-                    content: Text('Apakah Anda yakin ingin menghapus dompet "${w.name}"?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Batal'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  ),
-                ) ??
-                false;
-          },
-          onDismissed: (_) {
-            ref.read(walletsProvider.notifier).deleteWallet(w.id);
-            ref.invalidate(dashboardSummaryProvider);
-          },
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            decoration: BoxDecoration(
-              color: LuminousLedgerColors.alertRed,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(Icons.delete, color: Colors.white, size: 28),
+    return Column(
+      children: [
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 1,
+            mainAxisExtent: 150,
+            mainAxisSpacing: 14,
           ),
-          child: _buildWalletCardItem(w),
+          itemCount: displayWallets.length,
+          itemBuilder: (context, index) {
+            final w = displayWallets[index];
+            return Dismissible(
+              key: Key(w.id),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (direction) async {
+                return await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Hapus Dompet?'),
+                        content: Text('Apakah Anda yakin ingin menghapus dompet "${w.name}"?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Batal'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    ) ??
+                    false;
+              },
+              onDismissed: (_) {
+                ref.read(walletsProvider.notifier).deleteWallet(w.id);
+                ref.invalidate(dashboardSummaryProvider);
+              },
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                decoration: BoxDecoration(
+                  color: LuminousLedgerColors.alertRed,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(Icons.delete, color: Colors.white, size: 28),
+              ),
+              child: _buildWalletCardItem(w),
+            );
+          },
+        ),
+        if (displayWallets.isEmpty) _buildAddWalletButtonCard(),
+      ],
+    );
+  }
+
+  Widget _buildAddWalletButtonCard() {
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const WalletFormModal(),
         );
       },
+      child: Container(
+        height: 150,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: LuminousLedgerColors.outlineVariant,
+            width: 1.5,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: LuminousLedgerColors.surfaceContainerHigh,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: LuminousLedgerColors.outline),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tambah Dompet',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: LuminousLedgerColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -662,53 +714,6 @@ class _WalletManagementScreenState extends ConsumerState<WalletManagementScreen>
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAddWalletButtonCard() {
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const WalletFormModal(),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: LuminousLedgerColors.outlineVariant,
-            width: 1.5,
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: LuminousLedgerColors.surfaceContainerHigh,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, color: LuminousLedgerColors.outline),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tambah Dompet',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: LuminousLedgerColors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

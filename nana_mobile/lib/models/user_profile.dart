@@ -1,7 +1,7 @@
 class UserProfile {
   final String id;
   final String name;
-  final String username;
+  final String? username;
   final String avatarUrl;
   final String email;
   final String waNumber;
@@ -14,7 +14,7 @@ class UserProfile {
   UserProfile({
     required this.id,
     required this.name,
-    required this.username,
+    this.username,
     required this.avatarUrl,
     required this.email,
     required this.waNumber,
@@ -27,12 +27,12 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'] ?? 'user_default',
-      name: json['name'] ?? 'Naufal Pinandhita',
-      username: json['username'] ?? 'Nopal🐐',
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      username: json['username'] as String?,
       avatarUrl: json['avatar_url'] ?? '',
-      email: json['email'] ?? 'naufal@nana.home',
-      waNumber: json['wa_number'] ?? '+6281234567890',
+      email: json['email'] ?? '',
+      waNumber: json['wa_number'] ?? '',
       waBotEnabled: json['wa_bot_enabled'] == 1 || json['wa_bot_enabled'] == true,
       aiProviderType: json['ai_provider_type'] ?? '9router',
       aiBaseUrl: json['ai_base_url'] ?? 'http://192.168.18.27:20128/v1',
@@ -44,7 +44,7 @@ class UserProfile {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'username': username,
+      if (username != null) 'username': username,
       'avatar_url': avatarUrl,
       'email': email,
       'wa_number': waNumber,

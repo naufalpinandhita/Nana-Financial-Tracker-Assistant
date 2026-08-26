@@ -6,6 +6,7 @@ on:
       - main
       - beta
       - develop
+      - feat/*
     tags:
       - 'v*'
   workflow_dispatch:

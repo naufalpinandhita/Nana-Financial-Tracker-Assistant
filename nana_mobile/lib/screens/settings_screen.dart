@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../providers/app_providers.dart';
+import '../services/api_service.dart';
 import '../theme/luminous_ledger_theme.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_app_bar.dart';
@@ -22,6 +23,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final int _selectedBottomNavIndex = 3; // Active: Settings
   bool _isTestingGateway = false;
   bool _isFetchingModels = false;
+  bool _isConnectingWa = false;
 
   late TextEditingController _baseUrlController;
   late TextEditingController _apiKeyController;
@@ -186,80 +188,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: 10,
-                    bottom: MediaQuery.of(context).padding.bottom + 8,
-                    left: 16,
-                    right: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: LuminousLedgerColors.background.withOpacity(0.85),
-                    border: Border(
-                      top: BorderSide(
-                        color: Colors.white.withOpacity(0.4),
-                        width: 1,
+            child: SafeArea(
+              top: false,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: LuminousLedgerColors.background.withValues(alpha: 0.85),
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          width: 1,
+                        ),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          offset: const Offset(0, -4),
+                          blurRadius: 12,
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        offset: const Offset(0, -4),
-                        blurRadius: 12,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(
-                        index: 0,
-                        icon: Icons.home_outlined,
-                        label: 'Home',
-                        isActive: _selectedBottomNavIndex == 0,
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                          );
-                        },
-                      ),
-                      _buildNavItem(
-                        index: 1,
-                        icon: Icons.account_balance_wallet_outlined,
-                        label: 'Wallet',
-                        isActive: _selectedBottomNavIndex == 1,
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const WalletManagementScreen()),
-                          );
-                        },
-                      ),
-                      _buildNavItem(
-                        index: 2,
-                        icon: Icons.insights_outlined,
-                        label: 'Analytics',
-                        isActive: _selectedBottomNavIndex == 2,
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
-                          );
-                        },
-                      ),
-                      _buildNavItem(
-                        index: 3,
-                        icon: Icons.settings,
-                        label: 'Settings',
-                        isActive: _selectedBottomNavIndex == 3,
-                        onTap: () {},
-                      ),
-                    ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildNavItem(
+                          index: 0,
+                          icon: Icons.home_outlined,
+                          label: 'Home',
+                          isActive: _selectedBottomNavIndex == 0,
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItem(
+                          index: 1,
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'Wallet',
+                          isActive: _selectedBottomNavIndex == 1,
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const WalletManagementScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItem(
+                          index: 2,
+                          icon: Icons.insights_outlined,
+                          label: 'Analytics',
+                          isActive: _selectedBottomNavIndex == 2,
+                          onTap: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItem(
+                          index: 3,
+                          icon: Icons.settings,
+                          label: 'Settings',
+                          isActive: _selectedBottomNavIndex == 3,
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -448,7 +448,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildWhatsAppBotCard(BuildContext context, bool isWaBotActive, String waNumber, SystemStatus? status) {
     final waStatus = status?.waBotStatus ?? 'DISCONNECTED';
     final qrCode = status?.waQrCode;
-    final displayWaNumber = status?.waConnectedNumber ?? (waStatus == 'CONNECTED' ? waNumber : 'Belum Terhubung (Pindai QR)');
+    final displayWaNumber = status?.waConnectedNumber ?? (waStatus == 'CONNECTED' ? waNumber : 'Belum Terhubung');
 
     Color badgeColor = Colors.red;
     String badgeText = 'TERPUTUS';
@@ -460,7 +460,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       badgeIcon = Icons.check_circle_outline;
     } else if (waStatus == 'CONNECTING' || qrCode != null) {
       badgeColor = Colors.orange;
-      badgeText = 'MENUNGGU SCAN QR';
+      badgeText = 'MENUNGGU SCAN';
       badgeIcon = Icons.qr_code_scanner;
     }
 
@@ -510,7 +510,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Status & Toggle
+          // Agent enable/disable toggle
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -556,15 +556,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Action Button: Pair / Show QR Code
-          if (qrCode != null || waStatus != 'CONNECTED')
+          // Action buttons row
+          if (waStatus != 'CONNECTED') ...[
+            // Connect button — opens pairing modal
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _showQrCodeModal(context),
-                icon: const Icon(Icons.qr_code_2, color: Color(0xFF003527), size: 18),
+                onPressed: _isConnectingWa ? null : () => _showPairingModal(context),
+                icon: _isConnectingWa
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF003527)))
+                    : Icon(
+                        qrCode != null ? Icons.qr_code_2 : Icons.link,
+                        color: const Color(0xFF003527),
+                        size: 18,
+                      ),
                 label: Text(
-                  qrCode != null ? 'PINDAI QR CODE PAIRING WA' : 'HUBUNGKAN PERANGKAT WA',
+                  qrCode != null ? 'LIHAT QR CODE / KODE PAIRING' : 'HUBUNGKAN WHATSAPP',
                   style: const TextStyle(
                     color: Color(0xFF003527),
                     fontSize: 12,
@@ -575,15 +582,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFB0F0D6),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
-          if (qrCode != null || waStatus != 'CONNECTED') const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
 
-          // Linked Number Field
+          if (waStatus == 'CONNECTED') ...[
+            // Disconnect button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _disconnectWa(context),
+                icon: const Icon(Icons.link_off, size: 16, color: Colors.redAccent),
+                label: const Text(
+                  'PUTUSKAN WHATSAPP',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.redAccent, width: 1),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Linked number display
           const Text(
             'Nomor WA Terhubung',
             style: TextStyle(fontSize: 12, color: Color(0xFFD8DBD7)),
@@ -592,10 +624,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           TextField(
             enabled: false,
             controller: TextEditingController(text: displayWaNumber),
-            style: LuminousLedgerTheme.financialStyle(
-              fontSize: 14,
-              color: Colors.white,
-            ),
+            style: LuminousLedgerTheme.financialStyle(fontSize: 14, color: Colors.white),
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.phone_iphone, size: 18, color: Color(0xFFD8DBD7)),
               filled: true,
@@ -612,148 +641,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showQrCodeModal(BuildContext context) {
+  Future<void> _disconnectWa(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(apiServiceProvider).disconnectWa();
+      ref.invalidate(systemStatusProvider);
+      if (mounted) {
+        messenger.showSnackBar(const SnackBar(content: Text('WhatsApp berhasil diputus.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Gagal memutus: ${e.toString().replaceAll('Exception: ', '')}')));
+      }
+    }
+  }
+
+  /// Shows bottom sheet with two tabs: QR Code and Pairing Code
+  void _showPairingModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Consumer(
-              builder: (context, ref, child) {
-                final systemStatusAsync = ref.watch(systemStatusProvider);
-                final status = systemStatusAsync.asData?.value;
-                final currentQr = status?.waQrCode;
-                final isConnected = status?.waBotStatus == 'CONNECTED';
-
-                return Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF191C1B).withOpacity(0.95),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 20,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        isConnected ? 'WhatsApp Terhubung! 🎉' : 'Pairing WhatsApp Bot',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        isConnected
-                            ? 'Bot WhatsApp Nana siap digunakan untuk mencatat transaksi via chat.'
-                            : 'Buka WA di HP > Perangkat Tertaut (Linked Devices) > Pindai QR ini:',
-                        style: const TextStyle(fontSize: 13, color: Color(0xFFD8DBD7)),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFB0F0D6).withOpacity(0.3),
-                              blurRadius: 15,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: isConnected
-                            ? const SizedBox(
-                                width: 220,
-                                height: 220,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_circle, color: Color(0xFF003527), size: 64),
-                                    SizedBox(height: 12),
-                                    Text(
-                                      'Berhasil Terhubung',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : (currentQr != null && currentQr.isNotEmpty
-                                ? QrImageView(
-                                    data: currentQr,
-                                    version: QrVersions.auto,
-                                    size: 220.0,
-                                    backgroundColor: Colors.white,
-                                  )
-                                : SizedBox(
-                                    width: 220,
-                                    height: 220,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const CircularProgressIndicator(color: LuminousLedgerColors.primary),
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          'Menunggu QR Code dari Server...',
-                                          style: TextStyle(fontSize: 12, color: Colors.black54),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextButton.icon(
-                                          onPressed: () => ref.invalidate(systemStatusProvider),
-                                          icon: const Icon(Icons.refresh, size: 16),
-                                          label: const Text('Refresh Stream', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ],
-                                    ),
-                                  )),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(modalContext),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: BorderSide(color: Colors.white.withOpacity(0.3)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(isConnected ? 'Selesai' : 'Tutup'),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
+        return _PairingBottomSheet(apiService: ref.read(apiServiceProvider));
       },
-    );
+    ).then((_) {
+      // Refresh status after modal closes
+      ref.invalidate(systemStatusProvider);
+    });
   }
 
   Widget _buildServerConfigCard(BuildContext context) {
@@ -1269,6 +1184,401 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Bottom sheet with two tabs: QR Code and Pairing Code
+class _PairingBottomSheet extends ConsumerStatefulWidget {
+  final ApiService apiService;
+  const _PairingBottomSheet({required this.apiService});
+
+  @override
+  ConsumerState<_PairingBottomSheet> createState() => _PairingBottomSheetState();
+}
+
+class _PairingBottomSheetState extends ConsumerState<_PairingBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _phoneController = TextEditingController();
+  bool _isRequestingCode = false;
+  bool _isStartingQr = false;
+  String? _pairingCode;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startQrFlow() async {
+    setState(() {
+      _isStartingQr = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.apiService.connectWa();
+      ref.invalidate(systemStatusProvider);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isStartingQr = false);
+    }
+  }
+
+  Future<void> _requestPairingCode() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
+      setState(() => _errorMessage = 'Masukkan nomor telepon terlebih dahulu');
+      return;
+    }
+    setState(() {
+      _isRequestingCode = true;
+      _pairingCode = null;
+      _errorMessage = null;
+    });
+    try {
+      final code = await widget.apiService.requestWaPairingCode(phone);
+      if (mounted) {
+        setState(() => _pairingCode = code);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isRequestingCode = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final systemStatusAsync = ref.watch(systemStatusProvider);
+    final status = systemStatusAsync.asData?.value;
+    final currentQr = status?.waQrCode;
+    final isConnected = status?.waBotStatus == 'CONNECTED';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191C1B),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, -5)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Title
+          Text(
+            isConnected ? 'WhatsApp Terhubung!' : 'Pairing WhatsApp Bot',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isConnected
+                ? 'Bot WhatsApp Nana siap mencatat transaksi via chat.'
+                : 'Pilih metode pairing yang sesuai dengan perangkat kamu.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFFD8DBD7)),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+
+          if (isConnected) ...[
+            // Connected state — show success
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF003527).withOpacity(0.3),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFB0F0D6).withOpacity(0.4)),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.check_circle, color: Color(0xFFB0F0D6), size: 56),
+                  SizedBox(height: 12),
+                  Text(
+                    'Berhasil Terhubung',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFB0F0D6)),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Kirim pesan ke WhatsApp kamu untuk mencatat transaksi.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFD8DBD7)),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ] else ...[
+            // Tab bar
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: const Color(0xFFB0F0D6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: const Color(0xFF003527),
+                unselectedLabelColor: const Color(0xFFD8DBD7),
+                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                dividerColor: Colors.transparent,
+                tabs: const [
+                  Tab(text: 'QR Code'),
+                  Tab(text: 'Kode Pairing'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Tab content
+            SizedBox(
+              height: 320,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // --- Tab 1: QR Code ---
+                  _buildQrTab(currentQr),
+                  // --- Tab 2: Pairing Code ---
+                  _buildPairingCodeTab(),
+                ],
+              ),
+            ),
+          ],
+
+          // Error message
+          if (_errorMessage != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Close button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(isConnected ? 'Selesai' : 'Tutup'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrTab(String? currentQr) {
+    return Column(
+      children: [
+        // QR display
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFFB0F0D6).withOpacity(0.3), blurRadius: 15, spreadRadius: 2),
+            ],
+          ),
+          child: currentQr != null && currentQr.isNotEmpty
+              ? QrImageView(data: currentQr, version: QrVersions.auto, size: 180.0, backgroundColor: Colors.white)
+              : SizedBox(
+                  width: 180, height: 180,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(color: LuminousLedgerColors.primary),
+                      const SizedBox(height: 12),
+                      const Text('Menunggu QR...', style: TextStyle(fontSize: 11, color: Colors.black54), textAlign: TextAlign.center),
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        onPressed: () => ref.invalidate(systemStatusProvider),
+                        icon: const Icon(Icons.refresh, size: 14),
+                        label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        const SizedBox(height: 12),
+        // Instruction
+        const Text(
+          'Buka WhatsApp → Perangkat Tertaut → Tautkan Perangkat → Scan QR',
+          style: TextStyle(fontSize: 11, color: Color(0xFFD8DBD7)),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        if (currentQr == null)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isStartingQr ? null : _startQrFlow,
+              icon: _isStartingQr
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF003527)))
+                  : const Icon(Icons.qr_code_2, size: 16, color: Color(0xFF003527)),
+              label: Text(
+                _isStartingQr ? 'Memulai...' : 'Mulai Sesi QR',
+                style: const TextStyle(color: Color(0xFF003527), fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB0F0D6),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPairingCodeTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'NOMOR WHATSAPP KAMU',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD8DBD7), letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'contoh: 628123456789',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+            prefixIcon: const Icon(Icons.phone, size: 18, color: Color(0xFFD8DBD7)),
+            filled: true,
+            fillColor: const Color(0xFF2E312F),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Format E.164 tanpa "+": 628xxxxxxxxxx',
+          style: TextStyle(fontSize: 10, color: Color(0xFF8A9E97)),
+        ),
+        const SizedBox(height: 16),
+
+        // Pairing code display
+        if (_pairingCode != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF003527).withOpacity(0.4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFB0F0D6).withOpacity(0.5)),
+            ),
+            child: Column(
+              children: [
+                const Text('KODE PAIRING', style: TextStyle(fontSize: 10, color: Color(0xFFD8DBD7), letterSpacing: 1.2, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                  _pairingCode!,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB0F0D6),
+                    letterSpacing: 6,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Kode berlaku ±160 detik',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF8A9E97)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Buka WhatsApp → Perangkat Tertaut → Tautkan dengan Nomor Telepon → Masukkan kode di atas',
+            style: TextStyle(fontSize: 11, color: Color(0xFFD8DBD7)),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isRequestingCode ? null : _requestPairingCode,
+            icon: _isRequestingCode
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF003527)))
+                : const Icon(Icons.key, size: 16, color: Color(0xFF003527)),
+            label: Text(
+              _isRequestingCode ? 'Meminta Kode...' : (_pairingCode != null ? 'Minta Kode Baru' : 'Dapatkan Kode Pairing'),
+              style: const TextStyle(color: Color(0xFF003527), fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB0F0D6),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

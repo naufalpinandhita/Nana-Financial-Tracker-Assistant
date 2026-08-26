@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 import '../theme/luminous_ledger_theme.dart';
-import '../widgets/glass_card.dart';
+import '../utils/currency_formatter.dart';
 
 class TransactionFormModal extends ConsumerStatefulWidget {
   const TransactionFormModal({super.key});
@@ -14,7 +14,7 @@ class TransactionFormModal extends ConsumerStatefulWidget {
 class _TransactionFormModalState extends ConsumerState<TransactionFormModal> {
   final _formKey = GlobalKey<FormState>();
   String _txType = 'expense'; // 'income' | 'expense' | 'transfer'
-  
+
   String? _selectedWalletId;
   String? _selectedTargetWalletId;
   String? _selectedCategoryId;
@@ -23,6 +23,12 @@ class _TransactionFormModalState extends ConsumerState<TransactionFormModal> {
   final _noteController = TextEditingController();
   final DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
+
+  final List<Map<String, String>> _types = [
+    {'type': 'expense', 'label': 'Pengeluaran'},
+    {'type': 'income', 'label': 'Pemasukan'},
+    {'type': 'transfer', 'label': 'Transfer'},
+  ];
 
   @override
   void dispose() {
@@ -88,205 +94,378 @@ class _TransactionFormModalState extends ConsumerState<TransactionFormModal> {
     final walletsAsync = ref.watch(walletsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
-    return Padding(
+    return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        top: 24,
         left: 20,
         right: 20,
       ),
-      child: SingleChildScrollView(
-        child: GlassCard(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Catat Transaksi',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 16),
-                
-                // Transaction Type Selector
-                Row(
-                  children: [
-                    _buildTypeChip('expense', 'Pengeluaran', LuminousLedgerColors.alertRed),
-                    const SizedBox(width: 8),
-                    _buildTypeChip('income', 'Pemasukan', LuminousLedgerColors.incomeText),
-                    const SizedBox(width: 8),
-                    _buildTypeChip('transfer', 'Transfer', Colors.blue.shade700),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Amount Input
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: TextInputType.number,
-                  style: LuminousLedgerTheme.financialStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  decoration: const InputDecoration(
-                    labelText: 'Nominal (Rp)',
-                    prefixText: 'Rp ',
-                    border: OutlineInputBorder(),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191C1B).withValues(alpha: 0.95),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 25,
+            spreadRadius: 2,
+            offset: const Offset(0, -10),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Nominal wajib diisi';
-                    final parsed = double.tryParse(val.replaceAll('.', '').replaceAll(',', ''));
-                    if (parsed == null || parsed <= 0) return 'Nominal harus lebih dari 0';
-                    return null;
-                  },
                 ),
-                const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long, color: Color(0xFFB0F0D6), size: 24),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Catat Transaksi',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-                // Wallet Selection
-                walletsAsync.when(
-                  data: (wallets) {
-                    if (wallets.isEmpty) {
-                      return const Text('Belum ada dompet. Buat dompet dulu!');
-                    }
-                    _selectedWalletId ??= wallets.first.id;
+              // 1. Tipe Transaksi Chips
+              const Text(
+                'TIPE TRANSAKSI',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFD8DBD7),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: _types.map((t) {
+                  final typeKey = t['type']!;
+                  final label = t['label']!;
+                  final isSelected = _txType == typeKey;
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 6.0),
+                      child: ChoiceChip(
+                        label: Center(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? const Color(0xFF003527) : Colors.white,
+                            ),
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFFB0F0D6),
+                        backgroundColor: const Color(0xFF2E312F),
+                        showCheckmark: false,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _txType = typeKey;
+                              _selectedCategoryId = null;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. Nominal Input
+              const Text(
+                'NOMINAL (RP)',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFD8DBD7),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [ThousandsSeparatorInputFormatter()],
+                style: LuminousLedgerTheme.financialStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: '0',
+                  hintStyle: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.3)),
+                  prefixIcon: const Icon(Icons.attach_money, size: 18, color: Color(0xFFD8DBD7)),
+                  filled: true,
+                  fillColor: const Color(0xFF2E312F),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.redAccent),
+                  ),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Nominal wajib diisi';
+                  final parsed = double.tryParse(val.replaceAll('.', '').replaceAll(',', ''));
+                  if (parsed == null || parsed <= 0) return 'Nominal harus lebih dari 0';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // 3. Wallet Selection
+              walletsAsync.when(
+                data: (wallets) {
+                  if (wallets.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        'Belum ada dompet. Buat dompet dulu!',
+                        style: TextStyle(color: Colors.redAccent, fontSize: 13),
+                      ),
+                    );
+                  }
+                  _selectedWalletId ??= wallets.first.id;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _txType == 'transfer' ? 'DARI DOMPET' : 'PILIH DOMPET',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFD8DBD7),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedWalletId,
+                        dropdownColor: const Color(0xFF2E312F),
+                        style: const TextStyle(fontSize: 14, color: Colors.white),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.account_balance_wallet, size: 18, color: Color(0xFFD8DBD7)),
+                          filled: true,
+                          fillColor: const Color(0xFF2E312F),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+                          ),
+                        ),
+                        items: wallets
+                            .map((w) => DropdownMenuItem(
+                                  value: w.id,
+                                  child: Text('${w.name} (${w.type})'),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedWalletId = val);
+                        },
+                      ),
+                      if (_txType == 'transfer') ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'KE DOMPET TUJUAN',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD8DBD7),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedWalletId,
+                          initialValue: _selectedTargetWalletId,
+                          dropdownColor: const Color(0xFF2E312F),
+                          style: const TextStyle(fontSize: 14, color: Colors.white),
                           decoration: InputDecoration(
-                            labelText: _txType == 'transfer' ? 'Dari Dompet' : 'Pilih Dompet',
-                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.swap_horiz, size: 18, color: Color(0xFFD8DBD7)),
+                            filled: true,
+                            fillColor: const Color(0xFF2E312F),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+                            ),
                           ),
                           items: wallets
+                              .where((w) => w.id != _selectedWalletId)
                               .map((w) => DropdownMenuItem(
                                     value: w.id,
                                     child: Text('${w.name} (${w.type})'),
                                   ))
                               .toList(),
                           onChanged: (val) {
-                            if (val != null) setState(() => _selectedWalletId = val);
+                            if (val != null) setState(() => _selectedTargetWalletId = val);
                           },
                         ),
-                        if (_txType == 'transfer') ...[
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedTargetWalletId,
-                            decoration: const InputDecoration(
-                              labelText: 'Ke Dompet Tujuan',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: wallets
-                                .where((w) => w.id != _selectedWalletId)
-                                .map((w) => DropdownMenuItem(
-                                      value: w.id,
-                                      child: Text('${w.name} (${w.type})'),
-                                    ))
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) setState(() => _selectedTargetWalletId = val);
-                            },
-                          ),
-                        ],
                       ],
+                    ],
+                  );
+                },
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
+                error: (err, _) => Text('Gagal memuat dompet: ${err.toString()}', style: const TextStyle(color: Colors.redAccent)),
+              ),
+              const SizedBox(height: 16),
+
+              // 4. Category Selection (Only for Income / Expense)
+              if (_txType != 'transfer') ...[
+                const Text(
+                  'KATEGORI TRANSAKSI',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFD8DBD7),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                categoriesAsync.when(
+                  data: (categories) {
+                    final filtered = categories.where((c) => c.type == _txType).toList();
+                    if (filtered.isNotEmpty) {
+                      _selectedCategoryId ??= filtered.first.id;
+                    }
+
+                    return DropdownButtonFormField<String>(
+                      initialValue: _selectedCategoryId,
+                      dropdownColor: const Color(0xFF2E312F),
+                      style: const TextStyle(fontSize: 14, color: Colors.white),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.category, size: 18, color: Color(0xFFD8DBD7)),
+                        filled: true,
+                        fillColor: const Color(0xFF2E312F),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+                        ),
+                      ),
+                      items: filtered
+                          .map((c) => DropdownMenuItem(
+                                value: c.id,
+                                child: Text(c.name),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedCategoryId = val);
+                      },
                     );
                   },
-                  loading: () => const CircularProgressIndicator(),
-                  error: (err, _) => Text('Gagal memuat dompet: ${err.toString()}'),
+                  loading: () => const SizedBox(),
+                  error: (err, _) => Text('Gagal memuat kategori: ${err.toString()}', style: const TextStyle(color: Colors.redAccent)),
                 ),
-                const SizedBox(height: 12),
-
-                // Category Selection (Only for Income / Expense)
-                if (_txType != 'transfer')
-                  categoriesAsync.when(
-                    data: (categories) {
-                      final filtered = categories.where((c) => c.type == _txType).toList();
-                      if (filtered.isNotEmpty) {
-                        _selectedCategoryId ??= filtered.first.id;
-                      }
-
-                      return DropdownButtonFormField<String>(
-                        initialValue: _selectedCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: 'Kategori Transaksi',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: filtered
-                            .map((c) => DropdownMenuItem(
-                                  value: c.id,
-                                  child: Text(c.name),
-                                ))
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedCategoryId = val);
-                        },
-                      );
-                    },
-                    loading: () => const SizedBox(),
-                    error: (err, _) => Text('Gagal memuat kategori: ${err.toString()}'),
-                  ),
-                const SizedBox(height: 12),
-
-                // Note Input
-                TextFormField(
-                  controller: _noteController,
-                  decoration: const InputDecoration(
-                    labelText: 'Catatan (Opsional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Submit Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: LuminousLedgerColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Simpan Transaksi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildTypeChip(String type, String label, Color color) {
-    final isSelected = _txType == type;
-    return Expanded(
-      child: ChoiceChip(
-        label: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? Colors.white : LuminousLedgerColors.onSurface,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
+              // 5. Note Input
+              const Text(
+                'CATATAN (OPSIONAL)',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFD8DBD7),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _noteController,
+                style: const TextStyle(fontSize: 14, color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Misal: Beli kopi, Gaji bulanan',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.3)),
+                  prefixIcon: const Icon(Icons.notes, size: 18, color: Color(0xFFD8DBD7)),
+                  filled: true,
+                  fillColor: const Color(0xFF2E312F),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFB0F0D6)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB0F0D6),
+                    foregroundColor: const Color(0xFF003527),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: _isLoading ? null : _submit,
+                  icon: _isLoading
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF003527)))
+                      : const Icon(Icons.check_circle_outline, size: 20),
+                  label: Text(
+                    _isLoading ? 'MENYIMPAN...' : 'SIMPAN TRANSAKSI',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
           ),
         ),
-        selected: isSelected,
-        selectedColor: color,
-        backgroundColor: Colors.white,
-        onSelected: (selected) {
-          if (selected) {
-            setState(() {
-              _txType = type;
-              _selectedCategoryId = null;
-            });
-          }
-        },
       ),
     );
   }
