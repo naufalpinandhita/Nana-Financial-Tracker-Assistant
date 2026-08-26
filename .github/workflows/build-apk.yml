@@ -35,6 +35,13 @@ jobs:
           channel: 'stable'
           cache: false
 
+      - name: Extract App Version from pubspec.yaml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version:' nana_mobile/pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Extracted App Version: $VERSION"
+
       - name: Install Dependencies
         run: |
           cd nana_mobile
@@ -43,21 +50,21 @@ jobs:
       - name: Build Fat Release APK (Universal)
         run: |
           cd nana_mobile
-          flutter build apk --release --build-name="1.0.5" --build-number=${{ github.run_number }}
+          flutter build apk --release --build-name="${{ env.APP_VERSION }}" --build-number=${{ github.run_number }}
 
       - name: Upload Universal APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nana-app-release
+          name: nana-app-release-${{ env.APP_VERSION }}
           path: nana_mobile/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Create Release & Upload APK (On Tag or Dispatch)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
-          name: Nana Financial Tracker Beta ${{ github.ref_name }}
+          name: ${{ contains(github.ref_name, 'beta') && format('Nana Financial Tracker Beta {0}', github.ref_name) || format('Nana Financial Tracker Release {0}', github.ref_name) }}
           draft: false
-          prerelease: true
+          prerelease: ${{ contains(github.ref_name, 'beta') }}
           generate_release_notes: true
           files: |
             nana_mobile/build/app/outputs/flutter-apk/app-release.apk
